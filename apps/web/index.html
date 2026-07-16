@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Consola de administración y monitorización del broker NexusMQ."
+    />
+    <title>NexusMQ Console</title>
+    <script>
+      // Aplica el tema elegido (o el del sistema) antes del primer paint para
+      // evitar el parpadeo (FOUC). El proveedor de tema de React reconcilia luego.
+      (function () {
+        try {
+          var stored = localStorage.getItem('nexusmq.theme');
+          var theme = stored === 'light' || stored === 'dark' ? stored : null;
+          if (theme) document.documentElement.setAttribute('data-theme', theme);
+        } catch (_) {
+          /* localStorage no disponible: se usa el tema del sistema */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

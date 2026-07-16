@@ -3,13 +3,34 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "SPA React (Vite) de la consola NexusMQ. Se monta en la Fase 2.",
+  "description": "SPA React (Vite) de la consola NexusMQ: sistema de diseño dataviz y vistas v1.",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@nexusmq/contract": "workspace:*"
+    "@nexusmq/contract": "workspace:*",
+    "@radix-ui/react-toggle-group": "^1.1.15",
+    "@radix-ui/react-tooltip": "^1.2.12",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.24.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "tailwindcss": "^4.3.2",
+    "vite": "^8.1.4"
   }
 }

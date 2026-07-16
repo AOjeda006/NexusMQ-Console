@@ -1,0 +1,70 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Mapea los tokens semánticos (tokens.css) a colores de Tailwind. `inline` hace
+ * que las utilidades referencien la variable viva (`var(--surface)`) en vez de
+ * hornear el valor, así el cambio de tema en runtime reasigna todo desde un solo
+ * sitio. Los componentes usan roles: `bg-surface`, `text-foreground`,
+ * `border-border`, `bg-primary`, `ring-ring`, `text-series-1`, …
+ */
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-muted: var(--muted);
+
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-grid: var(--grid);
+  --color-axis: var(--axis);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-ring: var(--ring);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --color-success-text: var(--success-text);
+
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+  --color-series-6: var(--series-6);
+  --color-series-7: var(--series-7);
+  --color-series-8: var(--series-8);
+}
+
+@layer base {
+  html {
+    font-family:
+      system-ui,
+      -apple-system,
+      'Segoe UI',
+      sans-serif;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-page);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Foco visible coherente y con contraste en ambos temas (accesibilidad AA). */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}

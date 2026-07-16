@@ -135,8 +135,18 @@ estático de la SPA (`WEB_DIST_PATH`) con fallback de deep links, sin tapar API/
 *no-op* si no hay build (en dev lo sirve Vite). 7 e2e con una SPA de prueba.
 
 **★ FASE 1 (BFF) COMPLETA** (F1.1–F1.7). Typecheck/lint/build/test verdes en todo el monorepo (51
-tests del BFF). **Siguiente: Fase 2 — SPA base + sistema de diseño** (F2.1: shell Vite React +
-dataviz), pendiente de arrancar en una próxima sesión.
+tests del BFF).
+
+**F2.1 COMPLETA**: shell de la SPA + sistema de diseño dataviz. Vite 8 + React 19 + TS, Tailwind v4
+(CSS-first, `@theme inline`) + Radix + lucide. **Tokens dataviz centralizados** (`styles/tokens.css`,
+instancia validada de la paleta: superficies/tinta/estado/categórica de 8; pasa el validador en light
+y dark). Tema system/light/dark con persistencia y anti-FOUC; shell navegable (Sidebar con estado
+activo + Topbar) con routing react-router 7 y placeholders honestos por sección + 404. **Verificado en
+navegador** (Playwright/Chromium sobre `vite preview`): 5 e2e verdes, incluido **contraste AA ≥4.5**
+del texto sobre página y superficie en ambos temas, con capturas light/dark revisadas.
+typecheck/lint/build verdes. **Siguiente: F2.2 — Capa de datos + auth** (openapi-fetch del contrato +
+TanStack Query; errores RFC 7807 → UI; login/logout contra el BFF; guard de rutas; vista de prueba
+que lista topics reales).
 
 ---
 
@@ -257,9 +267,23 @@ dataviz), pendiente de arrancar en una próxima sesión.
   typecheck/lint/build/test verdes (51 tests).
 
 ### Fase 2 — SPA base + sistema de diseño
-- [ ] **F2.1 Shell + diseño (dataviz)** — Vite React TS; layout, routing, tema claro/oscuro;
+- [x] **F2.1 Shell + diseño (dataviz)** — Vite React TS; layout, routing, tema claro/oscuro;
   **aplica la skill dataviz** para paleta/tokens/tipografía. Tailwind + Radix.
   *AC:* shell navegable, accesible (contraste AA) en claro y oscuro; tokens centralizados.
+  ✔ SPA Vite 8 + React 19 + TS, **Tailwind v4** (CSS-first, `@theme inline`) + **primitivos Radix**
+  (ToggleGroup, Tooltip) + iconos lucide. **Tokens dataviz centralizados** en `styles/tokens.css`
+  (instancia validada de la paleta de la skill: superficies, tinta, estado, categórica de 8 — pasa
+  el validador en light y dark) mapeados a utilidades vía `@theme inline`. **Tema** system/light/dark
+  con `ThemeProvider` (persistencia `localStorage`, script anti-FOUC en `index.html`, `data-theme`
+  que gana sobre el `@media`) y control segmentado accesible (`aria-label` + icono, no solo color).
+  Shell = `AppShell` (Sidebar responsive con estado activo + Topbar con título de sección, estado de
+  conexión honesto "Sin sesión" y toggle de tema); routing con **react-router 7** (data router) y
+  vistas placeholder honestas por sección (`PagePlaceholder`, "con datos reales en Fase N"), más 404
+  dentro del shell. **Verificado en navegador** (Playwright/Chromium, `vite preview`): 5 e2e verdes
+  —render del shell, navegación con `aria-current`, toggle+persistencia al recargar, **contraste AA
+  (≥4.5) del texto sobre página y superficie en ambos temas**, y 404— con capturas light/dark
+  revisadas. typecheck/lint/build verdes. La *relief rule* de 3 slots categóricos <3:1 en light se
+  aplicará en F2.3 (gráficas) con etiqueta/tabla visibles.
 - [ ] **F2.2 Capa de datos + auth** — cliente `openapi-fetch` del contrato + TanStack Query; manejo
   de errores RFC 7807 → UI; flujo de login/logout contra el BFF; guard de rutas.
   *AC:* login funciona; una vista de prueba lista topics reales del broker vía BFF.

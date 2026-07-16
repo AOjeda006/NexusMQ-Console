@@ -1,0 +1,132 @@
+/*
+ * Tokens de diseño — instancia validada de la paleta de la skill `dataviz`.
+ *
+ * Fuente única de color de toda la consola. Los valores salen de la paleta de
+ * referencia (categórica de 8 tonos, superficies, tinta, estado) y pasan el
+ * validador de la skill en ambos modos (light: PASS con la *relief rule* para 3
+ * slots <3:1; dark: PASS). No se elige color en los componentes: consumen estos
+ * roles vía utilidades Tailwind (`bg-surface`, `text-foreground`, …).
+ *
+ * Tematizado (patrón de la skill): los valores light viven en `:root`; los dark
+ * se declaran bajo DOS ámbitos —el `@media (prefers-color-scheme: dark)` cubre el
+ * ajuste del sistema; `:root[data-theme='dark']` cubre el toggle del usuario, que
+ * debe ganar en ambos sentidos (el `:not([data-theme='light'])` deja que una
+ * marca light explícita venza al dark del sistema). Cambiar de tema reasigna
+ * estas variables en un único sitio.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Planos y superficies (ascendente en luminancia: page < surface < elevated) */
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --elevated: #ffffff;
+  --muted: #f0efec; /* lavado sutil: hover, fondos secundarios */
+
+  /* Tinta */
+  --foreground: #0b0b0b;
+  --muted-foreground: #52514e; /* texto secundario */
+  --faint-foreground: #898781; /* etiquetas/ejes: solo texto no esencial */
+
+  /* Líneas */
+  --border: rgba(11, 11, 11, 0.1); /* anillo/hairline */
+  --border-strong: #c3c2b7; /* divisores que deben leerse */
+  --grid: #e1e0d9; /* rejilla de gráficas */
+  --axis: #c3c2b7; /* eje/baseline */
+
+  /* Interacción (acento = slot 1 categórico, azul) */
+  --primary: #2a78d6;
+  --primary-hover: #256abf;
+  --primary-foreground: #ffffff;
+  --ring: #2a78d6; /* foco */
+
+  /* Estado (fijo, nunca tematizado; icono + etiqueta lo acompañan) */
+  --success: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --success-text: #006300; /* verde de texto/delta positivo (AA en claro) */
+
+  /* Paleta categórica (gráficas, F2.3) — orden fijo, nunca cíclico */
+  --series-1: #2a78d6;
+  --series-2: #008300;
+  --series-3: #e87ba4;
+  --series-4: #eda100;
+  --series-5: #1baf7a;
+  --series-6: #eb6834;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+}
+
+/* Dark del sistema (salvo marca light explícita del usuario) */
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) {
+    color-scheme: dark;
+
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --elevated: #232322;
+    --muted: #2c2c2a;
+
+    --foreground: #ffffff;
+    --muted-foreground: #c3c2b7;
+    --faint-foreground: #898781;
+
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: #383835;
+    --grid: #2c2c2a;
+    --axis: #383835;
+
+    --primary: #3987e5;
+    --primary-hover: #5598e7;
+    --primary-foreground: #ffffff;
+    --ring: #3987e5;
+
+    --success-text: #0ca30c;
+
+    --series-1: #3987e5;
+    --series-2: #008300;
+    --series-3: #d55181;
+    --series-4: #c98500;
+    --series-5: #199e70;
+    --series-6: #d95926;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+  }
+}
+
+/* Dark por toggle del usuario (gana siempre) */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --elevated: #232322;
+  --muted: #2c2c2a;
+
+  --foreground: #ffffff;
+  --muted-foreground: #c3c2b7;
+  --faint-foreground: #898781;
+
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: #383835;
+  --grid: #2c2c2a;
+  --axis: #383835;
+
+  --primary: #3987e5;
+  --primary-hover: #5598e7;
+  --primary-foreground: #ffffff;
+  --ring: #3987e5;
+
+  --success-text: #0ca30c;
+
+  --series-1: #3987e5;
+  --series-2: #008300;
+  --series-3: #d55181;
+  --series-4: #c98500;
+  --series-5: #199e70;
+  --series-6: #d95926;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
