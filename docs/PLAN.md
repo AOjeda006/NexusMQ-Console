@@ -130,8 +130,13 @@ y cierre limpio al desconectar el cliente. 3 e2e (cliente SSE crudo): frames, re
 limpio. Typecheck/lint/build/test verdes (37 tests). **F1.6 COMPLETA**: data source de Prometheus —
 `GET /api/history/query_range` (+`/status`) con **degradación limpia** (sin `PROMETHEUS_URL` ⇒ `200
 {available:false}`; con él, series reales), señalizando consulta inválida (400) y Prometheus caído
-(502). 7 e2e con un doble de Prometheus. Typecheck/lint/build/test verdes (44 tests). **Siguiente:
-Fase 1 — BFF, ítem F1.7** (servir el build estático de `apps/web` en producción) — último de la Fase 1.
+(502). 7 e2e con un doble de Prometheus. **F1.7 COMPLETA**: en producción el BFF sirve el build
+estático de la SPA (`WEB_DIST_PATH`) con fallback de deep links, sin tapar API/observabilidad;
+*no-op* si no hay build (en dev lo sirve Vite). 7 e2e con una SPA de prueba.
+
+**★ FASE 1 (BFF) COMPLETA** (F1.1–F1.7). Typecheck/lint/build/test verdes en todo el monorepo (51
+tests del BFF). **Siguiente: Fase 2 — SPA base + sistema de diseño** (F2.1: shell Vite React +
+dataviz), pendiente de arrancar en una próxima sesión.
 
 ---
 
@@ -239,8 +244,17 @@ Fase 1 — BFF, ítem F1.7** (servir el build estático de `apps/web` en producc
   (`query`/`start`/`end`/`step` obligatorios). e2e (7 casos) con un doble de Prometheus: status y
   query con/sin Prometheus, 400 de consulta inválida, 400 de borde y 502 inaccesible.
   typecheck/lint/build/test verdes (44 tests).
-- [ ] **F1.7 Sirve la SPA** — en prod, el BFF sirve el build estático de `apps/web` (mismo origen).
+- [x] **F1.7 Sirve la SPA** — en prod, el BFF sirve el build estático de `apps/web` (mismo origen).
   *AC:* build de producción del BFF sirve la SPA en `/`.
+  ✔ `applyStaticHosting(app, config)` (llamado en `main.ts` antes de `listen`) monta, sobre el Express
+  subyacente, `express.static` (ficheros reales del build) + un **fallback SPA** que devuelve
+  `index.html` en las GET de cliente (deep links) **sin tapar** API ni observabilidad (`/api/*`,
+  `/health`, `/healthz`, `/readyz` caen al router de Nest). Se activa solo si `WEB_DIST_PATH` apunta a
+  un dir con `index.html`; si no, *no-op* (en dev sirve Vite). Config: `NODE_ENV` (+`isProduction`) y
+  `WEB_DIST_PATH` añadidos al esquema. e2e (7 casos) con un build de SPA de prueba: `/` y deep links
+  sirven `index.html`, los assets se sirven, `/health` sigue en JSON, `/api/*` desconocida da 404
+  problem+json, y sin `WEB_DIST_PATH` no se sirve SPA (404) pero la API sigue viva.
+  typecheck/lint/build/test verdes (51 tests).
 
 ### Fase 2 — SPA base + sistema de diseño
 - [ ] **F2.1 Shell + diseño (dataviz)** — Vite React TS; layout, routing, tema claro/oscuro;

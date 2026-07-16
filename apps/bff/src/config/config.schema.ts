@@ -6,6 +6,9 @@ import { z } from 'zod';
  * arranque con un mensaje claro (ver {@link validateEnv}).
  */
 const envSchema = z.object({
+  /** Entorno de ejecución. Gobierna el `Secure` de la cookie y el servido de la SPA. */
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+
   /** Puerto de escucha del BFF. */
   PORT: z.coerce.number().int().positive().max(65535).default(3000),
 
@@ -30,16 +33,21 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+
+  /** Directorio del build estático de la SPA a servir en `/` (F1.7). Opcional. */
+  WEB_DIST_PATH: z.string().min(1).optional(),
 });
 
 /** Configuración del BFF ya validada y normalizada. */
 export interface BffConfig {
+  readonly nodeEnv: 'development' | 'test' | 'production';
   readonly port: number;
   readonly brokerAdminUrl: string;
   readonly prometheusUrl: string | undefined;
   readonly sessionSecret: string;
   readonly nodeExtraCaCerts: string | undefined;
   readonly brokerTlsRejectUnauthorized: boolean;
+  readonly webDistPath: string | undefined;
 }
 
 /** Error de configuración de arranque: mensaje legible con las claves ofensivas. */
@@ -70,11 +78,13 @@ export function validateEnv(env: NodeJS.ProcessEnv): BffConfig {
 
   const e = parsed.data;
   return {
+    nodeEnv: e.NODE_ENV,
     port: e.PORT,
     brokerAdminUrl: e.BROKER_ADMIN_URL,
     prometheusUrl: e.PROMETHEUS_URL,
     sessionSecret: e.SESSION_SECRET,
     nodeExtraCaCerts: e.NODE_EXTRA_CA_CERTS,
     brokerTlsRejectUnauthorized: e.BROKER_TLS_REJECT_UNAUTHORIZED,
+    webDistPath: e.WEB_DIST_PATH,
   };
 }

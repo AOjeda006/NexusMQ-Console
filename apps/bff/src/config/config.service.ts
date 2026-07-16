@@ -9,6 +9,9 @@ import { validateEnv } from './config.schema';
  */
 @Injectable()
 export class ConfigService {
+  /** Entorno de ejecución (`development` | `test` | `production`). */
+  readonly nodeEnv: 'development' | 'test' | 'production';
+
   /** Puerto en el que escucha el BFF. */
   readonly port: number;
 
@@ -24,17 +27,27 @@ export class ConfigService {
   /** ¿Validar el certificado TLS del broker al hacer de proxy? */
   readonly brokerTlsRejectUnauthorized: boolean;
 
+  /** Directorio del build estático de la SPA a servir en `/` (F1.7). */
+  readonly webDistPath: string | undefined;
+
   constructor() {
     const config = validateEnv(process.env);
+    this.nodeEnv = config.nodeEnv;
     this.port = config.port;
     this.brokerAdminUrl = config.brokerAdminUrl;
     this.prometheusUrl = config.prometheusUrl;
     this.sessionSecret = config.sessionSecret;
     this.brokerTlsRejectUnauthorized = config.brokerTlsRejectUnauthorized;
+    this.webDistPath = config.webDistPath;
   }
 
   /** ¿Hay un Prometheus configurado? Guía la degradación limpia (F1.6). */
   get isPrometheusConfigured(): boolean {
     return this.prometheusUrl !== undefined;
+  }
+
+  /** ¿Entorno de producción? (cookie `Secure`, servido de la SPA por defecto). */
+  get isProduction(): boolean {
+    return this.nodeEnv === 'production';
   }
 }

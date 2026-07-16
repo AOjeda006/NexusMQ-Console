@@ -5,17 +5,19 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
 import { ConfigService } from './config/config.service';
+import { applyStaticHosting } from './static/static-hosting';
 
 /**
  * Punto de entrada del BFF. Levanta la app Nest, habilita el apagado ordenado
- * (cierra conexiones salientes y streams SSE en `SIGTERM`/`SIGINT`) y escucha en
- * el puerto configurado.
+ * (cierra conexiones salientes y streams SSE en `SIGTERM`/`SIGINT`), sirve la
+ * SPA estática en producción y escucha en el puerto configurado.
  */
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
 
   const config = app.get(ConfigService);
+  applyStaticHosting(app, config);
   await app.listen(config.port);
 
   Logger.log(`BFF escuchando en http://localhost:${config.port}`, 'Bootstrap');
