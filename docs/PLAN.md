@@ -144,9 +144,18 @@ y dark). Tema system/light/dark con persistencia y anti-FOUC; shell navegable (S
 activo + Topbar) con routing react-router 7 y placeholders honestos por sección + 404. **Verificado en
 navegador** (Playwright/Chromium sobre `vite preview`): 5 e2e verdes, incluido **contraste AA ≥4.5**
 del texto sobre página y superficie en ambos temas, con capturas light/dark revisadas.
-typecheck/lint/build verdes. **Siguiente: F2.2 — Capa de datos + auth** (openapi-fetch del contrato +
-TanStack Query; errores RFC 7807 → UI; login/logout contra el BFF; guard de rutas; vista de prueba
-que lista topics reales).
+typecheck/lint/build verdes.
+
+**F2.2 COMPLETA**: capa de datos + auth. Cliente `openapi-fetch` del contrato + **TanStack Query**;
+errores **RFC 7807** normalizados (`ProblemError`) y mostrados con icono + texto; **auth «el operador
+pega su token»** (login/logout contra el BFF, sesión por cookie httpOnly) con `useAccess` (sesión +
+modo del broker) y guard `RequireAuth`; **vista de Topics** que lista datos reales paginados con
+estados cargando/error/vacío. **Verificado en navegador full-stack**: el BFF real sirve la SPA y
+proxya a un doble del broker (topología de producción); 5 e2e verdes (guard, RFC 7807, login →
+Topics reales, persistencia, logout) + los 5 del shell. Repo verde (typecheck/lint/build/test).
+**Siguiente: F2.3 — Arsenal de visualización** (wrappers base de ECharts, uPlot, visx y
+react-three-fiber con tokens dataviz + tema claro/oscuro; aplicar la *relief rule* de la paleta en
+las gráficas).
 
 ---
 
@@ -284,9 +293,27 @@ que lista topics reales).
   (≥4.5) del texto sobre página y superficie en ambos temas**, y 404— con capturas light/dark
   revisadas. typecheck/lint/build verdes. La *relief rule* de 3 slots categóricos <3:1 en light se
   aplicará en F2.3 (gráficas) con etiqueta/tabla visibles.
-- [ ] **F2.2 Capa de datos + auth** — cliente `openapi-fetch` del contrato + TanStack Query; manejo
+- [x] **F2.2 Capa de datos + auth** — cliente `openapi-fetch` del contrato + TanStack Query; manejo
   de errores RFC 7807 → UI; flujo de login/logout contra el BFF; guard de rutas.
   *AC:* login funciona; una vista de prueba lista topics reales del broker vía BFF.
+  ✔ **Cliente tipado** (`lib/api-client.ts`, `createNexusMqClient` del contrato apuntando al BFF,
+  mismo origen) + **TanStack Query** (`QueryProvider` con política de reintentos: 4xx no se
+  reintentan). **Errores RFC 7807** centralizados en `lib/problem.ts` (`ProblemDetail` del contrato,
+  `ProblemError`, `unwrap`) y mostrados con `ProblemAlert` (color de estado `critical` **con icono +
+  texto**, no solo color). **Auth (modelo «el operador pega su token»)**: `LoginPage` (textarea de
+  JWT) → `POST /api/auth/login`; `LogoutButton` → `logout`; `useAccess` unifica sesión + modo del
+  broker (`authenticated`/`open`/`locked`) y alimenta el **guard** `RequireAuth` (redirige a `/login`
+  en modo secreto sin sesión, deja pasar en modo abierto) y el indicador de conexión honesto de la
+  topbar. **Vista de prueba de Topics** (`routes/topics-page.tsx` + `TopicsTable`): lista real
+  paginada con estados cargando/error/vacío (el CRUD es F3.2). **Verificado en navegador
+  full-stack** (`e2e-fullstack/`, Playwright/Chromium): el **BFF real sirve el build de la SPA y
+  proxya `/api/*` a un doble del broker** (topología de producción, cookie httpOnly; `NODE_ENV` sin
+  fijar para que la cookie no sea `Secure` sobre `http`). 5 e2e verdes —guard redirige sin sesión,
+  deep link protegido, error RFC 7807 con token inválido, **login válido → Topics lista los topics
+  reales del broker vía BFF** + persistencia al recargar, y logout que vuelve al login— con capturas
+  revisadas. Los e2e del shell (F2.1) simulan la sesión (`page.route`) porque corren sin BFF.
+  `vitest.config.ts` excluye los directorios e2e (specs de Playwright). Repo verde:
+  typecheck/lint/build/test (51 del BFF) + ambos e2e.
 - [ ] **F2.3 Arsenal de visualización** — wrappers base de ECharts, uPlot, visx y react-three-fiber
   con tokens dataviz; tema claro/oscuro aplicado a las gráficas. *AC:* una gráfica de cada tipo
   renderiza con datos de ejemplo y respeta el tema.

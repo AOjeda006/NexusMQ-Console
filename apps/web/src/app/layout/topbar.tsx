@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { ThemeToggle } from '@/app/theme/theme-toggle';
+import { LogoutButton } from '@/features/auth/logout-button';
 
 import { ConnectionStatus } from './connection-status';
 import { NAV_ITEMS, SETTINGS_ITEM } from './nav';
@@ -29,6 +30,7 @@ export function Topbar(): ReactNode {
       <div className="flex items-center gap-3">
         <ConnectionStatus />
         <ThemeToggle />
+        <LogoutButton />
       </div>
     </header>
   );

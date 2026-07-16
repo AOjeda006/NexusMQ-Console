@@ -3,6 +3,30 @@ import { expect, type Page, test } from '@playwright/test';
 const SHOTS_DIR =
   'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
 
+/**
+ * Estos tests verifican solo el **shell** (F2.1) sobre el build estático servido
+ * por `vite preview`, sin BFF. Como el shell va tras el guard de auth (F2.2),
+ * simulamos una sesión activa interceptando `GET /api/auth/session`; así el
+ * `useAccess` resuelve a «authenticated» y el shell se monta. El camino real de
+ * datos/auth se cubre full-stack en `e2e-fullstack/data.spec.ts`.
+ */
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/session', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ authenticated: true }),
+    }),
+  );
+  await page.route('**/api/v1/topics*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ page: 1, size: 20, items: [] }),
+    }),
+  );
+});
+
 /** Luminancia relativa WCAG de un color `#rgb` o `#rrggbb`. */
 function luminance(hex: string): number {
   const raw = hex.trim().replace('#', '');
@@ -93,7 +117,9 @@ test('contraste AA del texto sobre superficie y página en ambos temas', async (
 
     // Texto primario y secundario deben cumplir AA (>=4.5) sobre ambos planos.
     expect(contrast(foreground, page_), `foreground/page (${theme})`).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(foreground, surface), `foreground/surface (${theme})`).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(foreground, surface), `foreground/surface (${theme})`).toBeGreaterThanOrEqual(
+      4.5,
+    );
     expect(contrast(muted, page_), `muted/page (${theme})`).toBeGreaterThanOrEqual(4.5);
     expect(contrast(muted, surface), `muted/surface (${theme})`).toBeGreaterThanOrEqual(4.5);
   }

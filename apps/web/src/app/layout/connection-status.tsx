@@ -1,10 +1,10 @@
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { ReactNode } from 'react';
 
+import { useAccess } from '@/features/auth/use-auth';
 import { cn } from '@/lib/cn';
 
-/** Estado de la sesión con el broker (vía BFF). Ampliará en F2.2. */
-export type ConnectionState = 'disconnected' | 'connected' | 'error';
+type DisplayState = 'checking' | 'authenticated' | 'open' | 'error';
 
 interface StateStyle {
   readonly label: string;
@@ -12,16 +12,21 @@ interface StateStyle {
   readonly dot: string;
 }
 
-const STATES: Record<ConnectionState, StateStyle> = {
-  disconnected: {
-    label: 'Sin sesión',
-    hint: 'Aún no hay sesión con el broker. El inicio de sesión llega con la capa de datos (F2.2).',
+const STATES: Record<DisplayState, StateStyle> = {
+  checking: {
+    label: 'Comprobando…',
+    hint: 'Resolviendo el estado de sesión con el broker a través del BFF.',
     dot: 'bg-faint-foreground',
   },
-  connected: {
-    label: 'Conectado',
-    hint: 'Sesión activa: el BFF está sirviendo datos del broker.',
+  authenticated: {
+    label: 'Sesión activa',
+    hint: 'Token de operador confinado en el servidor; el BFF sirve datos del broker.',
     dot: 'bg-success',
+  },
+  open: {
+    label: 'Modo abierto',
+    hint: 'El broker no exige autenticación; la consola opera sin iniciar sesión.',
+    dot: 'bg-primary',
   },
   error: {
     label: 'Sin conexión',
@@ -30,17 +35,28 @@ const STATES: Record<ConnectionState, StateStyle> = {
   },
 };
 
+function toDisplayState(access: ReturnType<typeof useAccess>): DisplayState {
+  if (access.isError) {
+    return 'error';
+  }
+  if (access.data === 'authenticated') {
+    return 'authenticated';
+  }
+  if (access.data === 'open') {
+    return 'open';
+  }
+  return 'checking';
+}
+
 /**
- * Píldora de estado de conexión. El significado lo lleva la etiqueta de texto
- * (no solo el punto de color); el tooltip Radix da el detalle al pasar por
- * encima o al enfocar con teclado.
+ * Píldora de estado de conexión, derivada del estado de acceso real (sesión +
+ * modo del broker). El significado lo lleva la etiqueta de texto (no solo el
+ * punto de color); el tooltip Radix da el detalle al pasar por encima o al
+ * enfocar con teclado.
  */
-export function ConnectionStatus({
-  state = 'disconnected',
-}: {
-  state?: ConnectionState;
-}): ReactNode {
-  const { label, hint, dot } = STATES[state];
+export function ConnectionStatus(): ReactNode {
+  const access = useAccess();
+  const { label, hint, dot } = STATES[toDisplayState(access)];
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
