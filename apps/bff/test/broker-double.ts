@@ -12,6 +12,10 @@ import type { AddressInfo } from 'node:net';
  */
 export interface BrokerDouble {
   readonly baseUrl: string;
+  /** Nº total de conexiones upstream que ha recibido el SSE (probar reconexión). */
+  streamConnectionCount(): number;
+  /** Nº de conexiones SSE **abiertas ahora** (probar el cierre limpio). */
+  openStreamCount(): number;
   close(): Promise<void>;
 }
 
@@ -19,6 +23,16 @@ export interface BrokerDouble {
 export interface BrokerDoubleOptions {
   /** Si `true`, las rutas `/api/v1/*` (salvo observabilidad abierta) exigen Bearer. */
   readonly requireAuth?: boolean;
+  /** Si `true`, el SSE emite un frame y cierra (fuerza reconexión del BFF). */
+  readonly streamCloseAfterFirstFrame?: boolean;
+}
+
+/** Contexto de enrutado (config + callbacks de estado mutable del doble). */
+interface RouteContext {
+  readonly requireAuth: boolean;
+  readonly streamCloseAfterFirstFrame: boolean;
+  onStreamConnection(): void;
+  onStreamClose(): void;
 }
 
 /** Token que el doble considera **inválido** (para probar el rechazo del login). */
@@ -63,11 +77,41 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-async function route(
-  req: IncomingMessage,
-  res: ServerResponse,
-  requireAuth: boolean,
-): Promise<void> {
+/**
+ * Sirve el SSE `metrics`. Emite un primer frame de inmediato; luego, o cierra
+ * (para forzar la reconexión del BFF) o emite frames periódicos hasta que la
+ * conexión se cierre.
+ */
+function serveStream(res: ServerResponse, ctx: RouteContext): void {
+  ctx.onStreamConnection();
+  res.on('close', () => ctx.onStreamClose());
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache',
+    connection: 'keep-alive',
+  });
+
+  const frame = (seq: number): void => {
+    res.write(`event: metrics\ndata: {"seq":${seq},"generatedAtMs":${Date.now()}}\n\n`);
+  };
+  frame(1);
+
+  if (ctx.streamCloseAfterFirstFrame) {
+    res.end();
+    return;
+  }
+
+  const interval = setInterval(() => {
+    if (res.writableEnded) {
+      clearInterval(interval);
+      return;
+    }
+    frame(Date.now());
+  }, 25);
+  res.on('close', () => clearInterval(interval));
+}
+
+async function route(req: IncomingMessage, res: ServerResponse, ctx: RouteContext): Promise<void> {
   const method = req.method ?? 'GET';
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -85,9 +129,13 @@ async function route(
     sendJson(res, 200, { generatedAtMs: 1_700_000_000_000, topics: 0, messagesIn: 0 });
     return;
   }
+  if (method === 'GET' && path === '/api/v1/stream') {
+    serveStream(res, ctx);
+    return;
+  }
 
   // --- Puerta de auth (modo secreto): el resto de /api/v1/* exige Bearer ------
-  if (requireAuth) {
+  if (ctx.requireAuth) {
     const token = extractBearer(req);
     if (token === undefined || token === INVALID_TOKEN) {
       sendProblem(res, 401, 'No autorizado', 'Falta un token válido (Bearer).');
@@ -180,9 +228,22 @@ async function route(
 
 /** Arranca el doble en un puerto libre de `127.0.0.1` y devuelve su URL base. */
 export async function startBrokerDouble(options: BrokerDoubleOptions = {}): Promise<BrokerDouble> {
-  const requireAuth = options.requireAuth ?? false;
+  let streamConnections = 0;
+  let openStreams = 0;
+  const ctx: RouteContext = {
+    requireAuth: options.requireAuth ?? false,
+    streamCloseAfterFirstFrame: options.streamCloseAfterFirstFrame ?? false,
+    onStreamConnection: () => {
+      streamConnections += 1;
+      openStreams += 1;
+    },
+    onStreamClose: () => {
+      openStreams = Math.max(0, openStreams - 1);
+    },
+  };
+
   const server: Server = createServer((req, res) => {
-    void route(req, res, requireAuth).catch(() => {
+    void route(req, res, ctx).catch(() => {
       if (!res.headersSent) {
         sendProblem(res, 500, 'Error del doble');
       }
@@ -194,9 +255,12 @@ export async function startBrokerDouble(options: BrokerDoubleOptions = {}): Prom
 
   return {
     baseUrl: `http://127.0.0.1:${port}`,
+    streamConnectionCount: () => streamConnections,
+    openStreamCount: () => openStreams,
     close: () =>
-      new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve())),
-      ),
+      new Promise<void>((resolve, reject) => {
+        server.closeAllConnections?.();
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }

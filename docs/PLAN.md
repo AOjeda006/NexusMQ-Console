@@ -123,9 +123,12 @@ confinado** (el operador pega su token). Login valida contra el broker y guarda 
 de sesiones **en memoria**; al navegador solo una cookie **httpOnly** firmada (HMAC con
 `SESSION_SECRET`). `SessionAuthGuard` global protege `topics`/`groups`/`cluster`: inyecta el token
 server-side, 401 sin sesión en modo secreto y deja pasar en **modo abierto** (detectado por sondeo).
-7 e2e con aserciones de **no-fuga** del token. Typecheck/lint/build/test verdes (34 tests).
-**Siguiente: Fase 1 — BFF, ítem F1.5** (terminación SSE; leer `herramientas/tiempo-real.md` y
-`fundamentos/redes/convenciones.md` antes).
+7 e2e con aserciones de **no-fuga** del token. **F1.5 COMPLETA**: terminación **SSE** — el BFF
+reemite el `GET /api/v1/stream` del broker al navegador (`text/event-stream`, latido, mismo criterio
+TLS) con **reconexión backoff+jitter** sin tumbar el `EventSource`, timeouts de conexión/inactividad
+y cierre limpio al desconectar el cliente. 3 e2e (cliente SSE crudo): frames, reconexión y cierre
+limpio. Typecheck/lint/build/test verdes (37 tests). **Siguiente: Fase 1 — BFF, ítem F1.6**
+(Prometheus data source `query_range` con degradación limpia sin `PROMETHEUS_URL`).
 
 ---
 
@@ -206,10 +209,21 @@ server-side, 401 sin sesión en modo secreto y deja pasar en **modo abierto** (d
   e2e (7 casos): 401 sin sesión, login inválido/válido, proxy con sesión, `session`, logout y **modo
   abierto**; con **aserciones de no-fuga** (el token no aparece en cuerpo, cabeceras ni cookie).
   typecheck/lint/build/test verdes (34 tests).
-- [ ] **F1.5 Terminación SSE** — conectar a `GET /api/v1/stream` del broker y **reemitir** SSE al
+- [x] **F1.5 Terminación SSE** — conectar a `GET /api/v1/stream` del broker y **reemitir** SSE al
   navegador (mismo origen); reconexión, timeout y cierre limpio; backpressure acotado.
   *AC:* un cliente `EventSource` contra el BFF recibe frames; al caer el broker, el BFF reconecta sin
   tumbar la conexión del navegador.
+  ✔ `StreamController` (`GET /api/v1/stream`, ruta **abierta** como en el contrato) delega en
+  `StreamService.pipe()`: fija cabeceras `text/event-stream` (+`X-Accel-Buffering: no`), lanza un
+  **latido** (`: keep-alive`) y reemite los frames del broker (`fetch` undici en streaming, mismo
+  criterio TLS que el proxy). La conexión del navegador es estable: si el broker cae, un bucle de
+  **reconexión con backoff exponencial + jitter** (`reconnect.ts`) reabre el upstream **sin cerrar**
+  el `EventSource`; hay **timeout de conexión** (10 s) e **inactividad** (30 s); al desconectarse el
+  cliente (`req 'close'`) se **aborta** el upstream (`AbortController`) y se cierra limpio. e2e (3
+  casos, cliente SSE crudo sobre `node:http`): recibe frames; **reconecta** manteniendo viva la
+  conexión (doble que cierra tras cada frame ⇒ ≥2 conexiones upstream, cliente sin corte); y **cierre
+  limpio** (al irse el cliente, el upstream del doble queda en 0). typecheck/lint/build/test verdes
+  (37 tests).
 - [ ] **F1.6 Prometheus data source** — proxy de `query_range` con **degradación limpia**: si no hay
   `PROMETHEUS_URL`, responde "no disponible" sin romper. *AC:* con y sin Prometheus, el BFF responde
   coherente (datos / vacío señalizado).
