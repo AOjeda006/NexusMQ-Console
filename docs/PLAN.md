@@ -67,6 +67,10 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
   `corepack`; se instaló `pnpm` global (`npm i -g pnpm`) y se fija `packageManager` en el
   `package.json` raíz. Node instalado = **v25.6.1**, pero el proyecto fija **Node 22 LTS**
   (`.nvmrc` + CI). El andamiaje funciona en 25; para dev local coherente, instalar Node 22.
+- **2026-07-16 — Transporte git = SSH.** El `origin` usa `git@github.com:...` con una clave de auth
+  local dedicada (`~/.ssh/github_auth`), porque el PAT de HTTPS no tenía scope `workflow` y GitHub
+  rechazaba subir `.github/workflows/`. La firma sigue con `github_signing` (independiente). El push
+  del repo va por SSH de aquí en adelante.
 
 ## Decisiones abiertas (resolver en la puerta de clarificación con el usuario)
 
@@ -74,9 +78,10 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
 
 ## Estado actual
 
-Fase 0 en curso. Decisiones de arranque cerradas (main directo + push + Docker). `pnpm 11.13.1`
-instalado. **F0.1 y F0.2 hechos** (monorepo verde + contrato generado del OpenAPI, importable desde
-web y bff). **Siguiente: F0.3 — CI en GitHub Actions.**
+**Fase 0 COMPLETA** (F0.1–F0.4, todo verificado y pusheado). Monorepo verde; contrato generado del
+OpenAPI e importable desde web y bff; CI en verde en GitHub Actions; commits **Verified** con la
+identidad del usuario. Push del repo por **SSH**. **Siguiente: Fase 1 — BFF (NestJS), ítem F1.1**
+(esqueleto Clean por módulos).
 
 ---
 
@@ -96,10 +101,16 @@ web y bff). **Siguiente: F0.3 — CI en GitHub Actions.**
   ✔ `openapi.yaml` vendorizado (LF, canónico de GitHub); `sync:openapi` verificado con descarga real;
   `generate` produce `paths/components/operations`; `createNexusMqClient` (openapi-fetch) exportado;
   web y bff importan `@nexusmq/contract` y typecheck pasa. Turbo encadena `generate → build/typecheck`.
-- [ ] **F0.3 CI (GitHub Actions)** — workflow que en cada push corre install + lint + typecheck +
+- [x] **F0.3 CI (GitHub Actions)** — workflow que en cada push corre install + lint + typecheck +
   build + test. *AC:* workflow en verde en GitHub.
-- [ ] **F0.4 Firma e identidad** — `.claude/settings.json` colocado; verificar commits **Verified**
+  ✔ `.github/workflows/ci.yml` (Node 22 vía `.nvmrc`, pnpm con caché): install → generate → lint →
+  typecheck → build → test. Push desbloqueado vía **SSH** (nueva clave de auth `github_auth`, porque
+  el PAT HTTPS no tiene scope `workflow`). Run **verde** en GitHub Actions (`conclusion=success`).
+- [x] **F0.4 Firma e identidad** — `.claude/settings.json` colocado; verificar commits **Verified**
   con la identidad del usuario. *AC:* `git log --show-signature` marca el commit como firmado.
+  ✔ Firma SSH con la clave propia del usuario (config global local, no el secreto cloud). Los dos
+  commits pusheados figuran en la API de GitHub como `verified=true, reason=valid`
+  (andresojedarodriguez@gmail.com): badge **Verified**.
 
 ### Fase 1 — BFF (NestJS)
 - [ ] **F1.1 Esqueleto Clean** — módulos `config`, `health`, `broker` (proxy), `prometheus`, `auth`,
