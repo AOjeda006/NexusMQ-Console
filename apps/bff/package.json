@@ -2,14 +2,31 @@
   "name": "@nexusmq/bff",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
-  "description": "BFF NestJS: proxy del plano admin del broker, JWT confinado, terminación SSE y sirve la SPA. Se monta en la Fase 1.",
+  "type": "commonjs",
+  "description": "BFF NestJS: proxy del plano admin del broker, JWT confinado, terminación SSE y sirve la SPA.",
+  "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "dev": "nest start --watch",
+    "start": "node dist/main.js",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@nexusmq/contract": "workspace:*"
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "@nexusmq/contract": "workspace:*",
+    "@swc/core": "^1.10.0",
+    "@types/supertest": "^6.0.2",
+    "supertest": "^7.0.0",
+    "unplugin-swc": "^1.5.1"
   }
 }

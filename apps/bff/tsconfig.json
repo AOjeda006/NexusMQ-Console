@@ -1,9 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist"
+    "types": ["node"],
+
+    // NestJS: DI por constructor basada en la metadata de decoradores.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // `emitDecoratorMetadata` necesita conservar las importaciones de los tipos
+    // inyectados; desactivamos `verbatimModuleSyntax` (que las elidiría) pero
+    // mantenemos el resto de la base estricta.
+    "verbatimModuleSyntax": false
   },
-  "include": ["src"],
-  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+  "include": ["src", "test"],
+  "exclude": ["dist", "node_modules"]
 }

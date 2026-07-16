@@ -2,8 +2,10 @@ packages:
   - apps/*
   - packages/*
 
-# esbuild (dependencia de Vitest) necesita ejecutar su script de instalación para
+# esbuild (Vitest) y @swc/core (unplugin-swc, para la metadata de decoradores de
+# NestJS en los tests del BFF) necesitan ejecutar su script de instalación para
 # colocar el binario nativo de la plataforma. pnpm bloquea build scripts por
-# defecto; aquí lo permitimos explícitamente (allow-list).
+# defecto; aquí los permitimos explícitamente (allow-list).
 allowBuilds:
+  '@swc/core': true
   esbuild: true

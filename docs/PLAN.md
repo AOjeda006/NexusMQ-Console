@@ -71,6 +71,24 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
   local dedicada (`~/.ssh/github_auth`), porque el PAT de HTTPS no tenía scope `workflow` y GitHub
   rechazaba subir `.github/workflows/`. La firma sigue con `github_signing` (independiente). El push
   del repo va por SSH de aquí en adelante.
+- **2026-07-16 — El broker no expone endpoint de login (contrato).** El `openapi.yaml` solo define
+  `bearerAuth` (JWT HS256), exigido únicamente si el nodo arrancó con `--jwt-secret`. **No hay ruta
+  que acuñe tokens**: el JWT se emite fuera del broker. Por eso el "login contra el broker" del BFF
+  no es literal; se resuelve con el modelo de auth de abajo.
+- **2026-07-16 — Auth (F1.4) = "el operador pega su token".** (esencial — confinamiento del token).
+  En el login el operador introduce un **JWT de broker ya emitido**; el BFF lo **valida contra el
+  broker** y lo guarda **en servidor** (almacén de sesiones en memoria). Al navegador solo va una
+  **cookie de sesión httpOnly** con el id de sesión. El **BFF nunca conoce el secreto HS256** de
+  firma. Si el broker corre **sin `--jwt-secret`**, la consola funciona en **modo abierto** (sin
+  login). El token del broker **no puede aparecer nunca** en una respuesta al navegador (habrá un
+  test que lo garantice).
+- **2026-07-16 — Tooling del BFF (reversible).** NestJS 11 sobre **Express**; el paquete `apps/bff`
+  emite **CommonJS** (idiomático en Nest; el resto del monorepo sigue ESM), con **DI por
+  constructor** vía `reflect-metadata` (`experimentalDecorators` + `emitDecoratorMetadata`). El
+  **proxy al broker usa `fetch` nativo** (undici), no el cliente `openapi-fetch`: es *passthrough*
+  (reemite RFC 7807 y SSE tal cual); el contrato se usa **solo para tipos**. Config validada con
+  **zod** *fail-fast* (F1.2). Sesiones **en memoria** (una sola instancia; basta para v1). Tests e2e
+  con **Vitest + supertest**, usando **`unplugin-swc`** para la metadata de decoradores.
 
 ## Decisiones abiertas (resolver en la puerta de clarificación con el usuario)
 
@@ -78,10 +96,12 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
 
 ## Estado actual
 
-**Fase 0 COMPLETA** (F0.1–F0.4, todo verificado y pusheado). Monorepo verde; contrato generado del
-OpenAPI e importable desde web y bff; CI en verde en GitHub Actions; commits **Verified** con la
-identidad del usuario. Push del repo por **SSH**. **Siguiente: Fase 1 — BFF (NestJS), ítem F1.1**
-(esqueleto Clean por módulos).
+**Fase 0 COMPLETA** (F0.1–F0.4, todo verificado y pusheado). **F1.1 COMPLETA**: esqueleto Clean del
+BFF (NestJS 11 / Express, CommonJS) con los módulos `config` (global), `health`, `broker`,
+`prometheus`, `auth` y `stream`; DI por constructor; controllers finos; `GET /health` responde 200 y
+e2e (Vitest + supertest, metadata de decoradores vía `unplugin-swc`) en verde; arranque real
+verificado (`node dist/main.js`). Typecheck/lint/build/test verdes en todo el monorepo.
+**Siguiente: Fase 1 — BFF, ítem F1.2** (config validada *fail-fast* con zod).
 
 ---
 
@@ -113,9 +133,15 @@ identidad del usuario. Push del repo por **SSH**. **Siguiente: Fase 1 — BFF (N
   (andresojedarodriguez@gmail.com): badge **Verified**.
 
 ### Fase 1 — BFF (NestJS)
-- [ ] **F1.1 Esqueleto Clean** — módulos `config`, `health`, `broker` (proxy), `prometheus`, `auth`,
+- [x] **F1.1 Esqueleto Clean** — módulos `config`, `health`, `broker` (proxy), `prometheus`, `auth`,
   `stream` (SSE); DI por constructor; sin lógica de negocio en controllers.
   *AC:* `pnpm --filter @nexusmq/bff dev` arranca; `GET /health` responde; tests de arranque en verde.
+  ✔ NestJS 11 sobre Express, salida CommonJS (el resto del monorepo sigue ESM). `AppModule` compone
+  los 6 módulos; `ConfigModule` es `@Global()`. Controller de health fino delega en `HealthService`.
+  `GET /health` → `200 {status:ok, service, uptimeSeconds}`; arranque real comprobado
+  (`node dist/main.js`, todos los módulos inicializados y ruta mapeada). e2e con Vitest + supertest
+  (metadata de decoradores vía `unplugin-swc`; `@swc/core` en la allow-list de builds). Dev con
+  `nest start --watch`. typecheck/lint/build/test verdes.
 - [ ] **F1.2 Config validada** — env: `BROKER_ADMIN_URL`, `PROMETHEUS_URL` (opcional), secreto de
   sesión, TLS/`NODE_EXTRA_CA_CERTS`. Validación *fail-fast* al arranque (allow-list).
   *AC:* arranca solo con config válida; un env inválido aborta con mensaje claro.
