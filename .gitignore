@@ -1,0 +1,38 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+apps/web/dist/
+apps/bff/dist/
+packages/contract/dist/
+
+# Contrato generado (se regenera con `pnpm --filter @nexusmq/contract generate`)
+packages/contract/src/generated/
+
+# Turborepo / caché
+.turbo/
+*.tsbuildinfo
+
+# Test / cobertura
+coverage/
+playwright-report/
+test-results/
+
+# Entorno y secretos (NUNCA se commitean)
+.env
+.env.*
+!.env.example
+
+# Editores / SO
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

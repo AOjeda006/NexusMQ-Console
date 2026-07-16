@@ -1,0 +1,14 @@
+# Normaliza finales de línea a LF en el repositorio y en la copia de trabajo,
+# independientemente del SO (coherente con .editorconfig y Prettier; evita que
+# CRLF de Windows rompa la CI en Linux).
+* text=auto eol=lf
+
+# Binarios: nunca normalizar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary

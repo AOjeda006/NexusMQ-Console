@@ -1,0 +1,16 @@
+{
+  "//": "Fija tu identidad git en cada arranque y, si existe el secreto SIGNING_KEY_B64, activa la firma SSH de commits (Verified). Si no existe, avisa de como anadirlo.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Configurando identidad y firma de commits del usuario",
+            "command": "git config --global user.name \"Andrés Ojeda Rodríguez\" && git config --global user.email \"andresojedarodriguez@gmail.com\" && if [ -n \"$SIGNING_KEY_B64\" ]; then mkdir -p ~/.ssh && printf '%s' \"$SIGNING_KEY_B64\" | base64 -d > ~/.ssh/claude_signing && chmod 600 ~/.ssh/claude_signing && ssh-keygen -y -f ~/.ssh/claude_signing > ~/.ssh/claude_signing.pub && git config --global gpg.format ssh && git config --global user.signingkey ~/.ssh/claude_signing.pub && git config --global commit.gpgsign true && echo '[firma] OK: commits firmados (Verified).'; else echo '[firma] FALTA el secreto SIGNING_KEY_B64: los commits NO iran firmados. Para activarlo: en la config del entorno (Environments -> variables/secretos) crea SIGNING_KEY_B64 con la salida de: base64 -w0 ~/.ssh/claude_signing ; luego reinicia la sesion.'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
