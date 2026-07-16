@@ -153,9 +153,14 @@ modo del broker) y guard `RequireAuth`; **vista de Topics** que lista datos real
 estados cargando/error/vacío. **Verificado en navegador full-stack**: el BFF real sirve la SPA y
 proxya a un doble del broker (topología de producción); 5 e2e verdes (guard, RFC 7807, login →
 Topics reales, persistencia, logout) + los 5 del shell. Repo verde (typecheck/lint/build/test).
-**Siguiente: F2.3 — Arsenal de visualización** (wrappers base de ECharts, uPlot, visx y
-react-three-fiber con tokens dataviz + tema claro/oscuro; aplicar la *relief rule* de la paleta en
-las gráficas).
+
+**F2.3 COMPLETA**: arsenal de visualización. Puente `useVizTokens` (tokens dataviz reactivos al
+tema) + **cuatro wrappers base** (`EChart`, `UplotChart`, `VisxAreaChart`, `ThreeClusterScene`) que
+toman color de la paleta en orden fijo con grid/ejes recesivos; laboratorio `/lab` con carga
+diferida que muestra una gráfica de cada librería. **Verificado en navegador** (Playwright): 2 e2e
+—las 4 gráficas renderizan (3 canvas + visx SVG, WebGL incluido) y respetan el tema oscuro— con
+capturas light/dark revisadas. Repo verde. **Siguiente: F2.4 — Tiempo real** (hook `useLiveStream`
+sobre `EventSource` del SSE del BFF, con reconexión y **fallback a polling** de `metrics/snapshot`).
 
 ---
 
@@ -314,9 +319,22 @@ las gráficas).
   revisadas. Los e2e del shell (F2.1) simulan la sesión (`page.route`) porque corren sin BFF.
   `vitest.config.ts` excluye los directorios e2e (specs de Playwright). Repo verde:
   typecheck/lint/build/test (51 del BFF) + ambos e2e.
-- [ ] **F2.3 Arsenal de visualización** — wrappers base de ECharts, uPlot, visx y react-three-fiber
+- [x] **F2.3 Arsenal de visualización** — wrappers base de ECharts, uPlot, visx y react-three-fiber
   con tokens dataviz; tema claro/oscuro aplicado a las gráficas. *AC:* una gráfica de cada tipo
   renderiza con datos de ejemplo y respeta el tema.
+  ✔ Puente de tokens `useVizTokens` (lee los hex resueltos de la paleta dataviz y **los re-lee al
+  cambiar de tema** vía `MutationObserver` sobre `data-theme` + media query, sin depender del orden
+  de efectos). **Cuatro wrappers base** en `features/viz/`: `EChart` (ECharts, ciclo de vida +
+  `ResizeObserver` + `setOption` notMerge), `UplotChart` (uPlot imperativo, reconstruye al cambiar
+  opciones/tema), `VisxAreaChart` (composición SVG: área con degradado + línea, rejilla/ejes
+  recesivos) y `ThreeClusterScene` (react-three-fiber: mini-topología 3D que rota, germen del
+  *showstopper* de F3.5; fondo = superficie del tema, nodos = paleta categórica). Todas toman color
+  de los tokens en **orden fijo** (grid/axis recesivos, marcas de 2px, leyenda en ECharts).
+  Laboratorio `/lab` (fuera del shell/guard, **carga diferida** para no inflar el bundle principal —
+  ECharts/three van a su propio chunk) que muestra una gráfica de cada librería con datos de
+  ejemplo. **Verificado en navegador** (Playwright/Chromium): 2 e2e —render de las 4 (3 `<canvas>` +
+  visx SVG, WebGL incluido) y respeto del tema oscuro— con capturas light/dark revisadas.
+  typecheck/lint/build/test verdes.
 - [ ] **F2.4 Tiempo real** — hook `useLiveStream` sobre `EventSource` (SSE del BFF) con reconexión y
   **fallback a polling** de `metrics/snapshot`. *AC:* con SSE llega push en vivo; matando el SSE, cae
   a polling sin romper la UI.

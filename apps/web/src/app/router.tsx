@@ -19,6 +19,12 @@ import { TopicsPage } from '@/routes/topics-page';
  */
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  // Laboratorio de visualización (F2.3): fuera del shell y del guard, y con carga
+  // diferida para no inflar el bundle principal con ECharts/three.
+  {
+    path: '/lab',
+    lazy: async () => ({ Component: (await import('@/routes/viz-lab-page')).VizLabPage }),
+  },
   {
     path: '/',
     element: (
