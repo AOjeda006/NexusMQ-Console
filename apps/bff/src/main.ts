@@ -21,4 +21,10 @@ async function bootstrap(): Promise<void> {
   Logger.log(`BFF escuchando en http://localhost:${config.port}`, 'Bootstrap');
 }
 
-void bootstrap();
+bootstrap().catch((error: unknown) => {
+  // Fail-fast: config de entorno inválida u otro fallo de arranque. Mensaje
+  // claro y salida con código de error para que orquestadores/CI lo detecten.
+  const message = error instanceof Error ? error.message : String(error);
+  Logger.error(message, undefined, 'Bootstrap');
+  process.exit(1);
+});

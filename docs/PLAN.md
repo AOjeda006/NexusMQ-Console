@@ -100,8 +100,10 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
 BFF (NestJS 11 / Express, CommonJS) con los módulos `config` (global), `health`, `broker`,
 `prometheus`, `auth` y `stream`; DI por constructor; controllers finos; `GET /health` responde 200 y
 e2e (Vitest + supertest, metadata de decoradores vía `unplugin-swc`) en verde; arranque real
-verificado (`node dist/main.js`). Typecheck/lint/build/test verdes en todo el monorepo.
-**Siguiente: Fase 1 — BFF, ítem F1.2** (config validada *fail-fast* con zod).
+verificado (`node dist/main.js`). **F1.2 COMPLETA**: config *fail-fast* con **zod** (allow-list
+`BROKER_ADMIN_URL`/`PROMETHEUS_URL`/`SESSION_SECRET`/TLS…); `validateEnv` pura + `ConfigService`;
+arranque con env inválido aborta con mensaje claro y exit 1 (comprobado). Typecheck/lint/build/test
+verdes en todo el monorepo. **Siguiente: Fase 1 — BFF, ítem F1.3** (proxy REST del broker).
 
 ---
 
@@ -142,9 +144,16 @@ verificado (`node dist/main.js`). Typecheck/lint/build/test verdes en todo el mo
   (`node dist/main.js`, todos los módulos inicializados y ruta mapeada). e2e con Vitest + supertest
   (metadata de decoradores vía `unplugin-swc`; `@swc/core` en la allow-list de builds). Dev con
   `nest start --watch`. typecheck/lint/build/test verdes.
-- [ ] **F1.2 Config validada** — env: `BROKER_ADMIN_URL`, `PROMETHEUS_URL` (opcional), secreto de
+- [x] **F1.2 Config validada** — env: `BROKER_ADMIN_URL`, `PROMETHEUS_URL` (opcional), secreto de
   sesión, TLS/`NODE_EXTRA_CA_CERTS`. Validación *fail-fast* al arranque (allow-list).
   *AC:* arranca solo con config válida; un env inválido aborta con mensaje claro.
+  ✔ `config.schema.ts` con **zod** (allow-list): `PORT` (def. 3000), `BROKER_ADMIN_URL` (URL,
+  requerida), `PROMETHEUS_URL` (URL, opcional), `SESSION_SECRET` (≥32), `NODE_EXTRA_CA_CERTS`
+  (opcional), `BROKER_TLS_REJECT_UNAUTHORIZED` (bool, def. true). `validateEnv` (función pura,
+  testeable) lanza `ConfigValidationError` con detalle por clave; `ConfigService` la invoca en su
+  constructor y `main.ts` la captura → **aborta con exit 1**. Comprobado en real: sin
+  `BROKER_ADMIN_URL`/`SESSION_SECRET` imprime el mensaje y sale con código 1. 6 tests unitarios de
+  `validateEnv` + setup de entorno para los e2e. typecheck/lint/build/test verdes.
 - [ ] **F1.3 Proxy REST del broker** — reexponer topics CRUD+`PATCH`, groups list+`{id}`, `cluster`,
   `metrics/snapshot`, `healthz/readyz`. Validación en el borde; passthrough de RFC 7807.
   *AC:* e2e (supertest) contra un **doble del broker** cubre cada endpoint (éxito + error 4xx).

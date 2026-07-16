@@ -1,15 +1,21 @@
 import { Injectable } from '@nestjs/common';
 
+import { ConfigService } from '../config/config.service';
+
 /**
  * Data source de Prometheus para las vistas de historia (series temporales).
  *
  * @remarks
  * En **F1.6** implementa el proxy de `query_range` con **degradación limpia**:
  * si no hay `PROMETHEUS_URL` configurada, responde "no disponible" sin romper.
- * De momento reporta que aún no está configurado.
+ * Aquí ya deriva su disponibilidad de la config validada.
  */
 @Injectable()
 export class PrometheusService {
-  /** ¿Hay un Prometheus configurado? En F1.6 dependerá de `PROMETHEUS_URL`. */
-  readonly isConfigured: boolean = false;
+  constructor(private readonly config: ConfigService) {}
+
+  /** ¿Hay un Prometheus configurado? Si no, la historia degrada (F1.6). */
+  get isConfigured(): boolean {
+    return this.config.isPrometheusConfigured;
+  }
 }

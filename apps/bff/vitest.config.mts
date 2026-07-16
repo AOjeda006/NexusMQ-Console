@@ -12,6 +12,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
+    // Config *fail-fast*: los tests que arrancan la app necesitan un entorno
+    // válido antes de instanciar el `ConfigService`.
+    setupFiles: ['./test/setup-env.ts'],
   },
   plugins: [swc.vite({ module: { type: 'es6' } })],
 });
