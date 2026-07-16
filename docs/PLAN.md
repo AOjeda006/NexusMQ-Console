@@ -102,8 +102,13 @@ BFF (NestJS 11 / Express, CommonJS) con los módulos `config` (global), `health`
 e2e (Vitest + supertest, metadata de decoradores vía `unplugin-swc`) en verde; arranque real
 verificado (`node dist/main.js`). **F1.2 COMPLETA**: config *fail-fast* con **zod** (allow-list
 `BROKER_ADMIN_URL`/`PROMETHEUS_URL`/`SESSION_SECRET`/TLS…); `validateEnv` pura + `ConfigService`;
-arranque con env inválido aborta con mensaje claro y exit 1 (comprobado). Typecheck/lint/build/test
-verdes en todo el monorepo. **Siguiente: Fase 1 — BFF, ítem F1.3** (proxy REST del broker).
+arranque con env inválido aborta con mensaje claro y exit 1 (comprobado). **F1.3 COMPLETA**: proxy
+REST *passthrough* del broker con `fetch` (undici) — topics CRUD+`PATCH`, groups, cluster,
+`metrics/snapshot`, `healthz`/`readyz`—; controllers finos que reemiten status+cuerpo+`Location`
+*verbatim*; validación en el borde con `ZodValidationPipe`; `ProblemDetailsFilter` global mapea a
+RFC 7807 solo los errores del BFF (400 de borde, 502 broker caído) y propaga intactos los 4xx del
+broker. 19 e2e contra un doble del broker (puerto efímero). Typecheck/lint/build/test verdes (27
+tests). **Siguiente: Fase 1 — BFF, ítem F1.4** (auth/JWT confinado; leer `herramientas/autenticacion.md` antes).
 
 ---
 
@@ -154,9 +159,20 @@ verdes en todo el monorepo. **Siguiente: Fase 1 — BFF, ítem F1.3** (proxy RES
   constructor y `main.ts` la captura → **aborta con exit 1**. Comprobado en real: sin
   `BROKER_ADMIN_URL`/`SESSION_SECRET` imprime el mensaje y sale con código 1. 6 tests unitarios de
   `validateEnv` + setup de entorno para los e2e. typecheck/lint/build/test verdes.
-- [ ] **F1.3 Proxy REST del broker** — reexponer topics CRUD+`PATCH`, groups list+`{id}`, `cluster`,
+- [x] **F1.3 Proxy REST del broker** — reexponer topics CRUD+`PATCH`, groups list+`{id}`, `cluster`,
   `metrics/snapshot`, `healthz/readyz`. Validación en el borde; passthrough de RFC 7807.
   *AC:* e2e (supertest) contra un **doble del broker** cubre cada endpoint (éxito + error 4xx).
+  ✔ `BrokerService.forward()` con `fetch` (undici) *passthrough*: captura status + `Content-Type` +
+  cuerpo del broker y el controller los reemite *verbatim* (`sendProxyResult`, incluye `Location` al
+  crear). Controllers finos por recurso (`TopicsController` CRUD+PATCH, `GroupsController`,
+  `ClusterController`, `ObservabilityController` para `healthz`/`readyz`/`metrics/snapshot`).
+  Validación en el borde con `ZodValidationPipe` (paginación `[1,100]`; `name` obligatorio; PATCH
+  `.strict()` rechaza `segmentBytes`). `ProblemDetailsFilter` global (vía `CommonModule`/`APP_FILTER`)
+  mapea a `application/problem+json` **solo** los errores que origina el BFF: validación → 400,
+  `BrokerUnreachableError` → 502; los 4xx del broker se propagan intactos. TLS relajable con
+  dispatcher undici propio si `BROKER_TLS_REJECT_UNAUTHORIZED=false`. e2e (19 casos) contra un doble
+  del broker (`test/broker-double.ts`, puerto efímero): éxito por endpoint, 404/409 del broker, 400 de
+  borde (size, name, segmentBytes) y 502 con broker caído. typecheck/lint/build/test verdes (27 tests).
 - [ ] **F1.4 Auth/JWT confinado** — login → el BFF obtiene y **guarda el JWT del broker en
   servidor**; al navegador, cookie de sesión **httpOnly**. Guard por petición; logout.
   *AC:* el token del broker **no** aparece nunca en respuestas al navegador; rutas protegidas dan 401
