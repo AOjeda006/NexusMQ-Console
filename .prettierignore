@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+coverage
+.turbo
+pnpm-lock.yaml
+packages/contract/src/generated
+packages/contract/openapi.yaml
+*.tsbuildinfo
+
+# Documentación de gobernanza/spec redactada a mano (CLAUDE.md, AGENTS.md,
+# docs/PLAN.md, README.md, ADRs...): saltos de línea y tablas intencionados.
+# Prettier formatea código/config, no la prosa.
+*.md

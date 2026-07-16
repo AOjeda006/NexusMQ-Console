@@ -1,0 +1,20 @@
+{
+  "name": "@nexusmq/contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tipos y cliente tipado generados del OpenAPI de NexusMQ. El contrato nunca se escribe a mano.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  }
+}
