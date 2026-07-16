@@ -1,0 +1,535 @@
+openapi: 3.0.3
+info:
+  title: NexusMQ — REST admin API
+  version: "1.0.0"
+  description: >
+    API de administración y operación de NexusMQ, servida en el **puerto de operación**, separado
+    del plano de datos binario (puerto 9092). El puerto de operación **no tiene valor por defecto**:
+    está desactivado salvo que el nodo arranque con `--admin-port <N>` (en este documento se usa
+    9644 solo como ejemplo). Cubre la gestión de topics y grupos bajo `/api/v1` (autenticada con
+    Bearer JWT cuando el nodo arranca con `--jwt-secret`) y los endpoints de salud/métricas (sin
+    autenticar). Los errores siguen **RFC 7807** (`application/problem+json`).
+  license:
+    name: PolyForm Noncommercial 1.0.0
+    url: https://polyformproject.org/licenses/noncommercial/1.0.0/
+
+servers:
+  - url: http://localhost:9644
+    description: Puerto de operación local (ejemplo; se fija con `--admin-port`, sin default)
+
+tags:
+  - name: topics
+    description: Gestión de topics.
+  - name: groups
+    description: Grupos de consumidores.
+  - name: operación
+    description: Salud y métricas (sin autenticación).
+
+paths:
+  /healthz:
+    get:
+      tags: [operación]
+      summary: Liveness — ¿el proceso está vivo?
+      security: []
+      responses:
+        "200":
+          description: Vivo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+        "503":
+          description: Drenando (apagándose).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+        "405":
+          description: Método no permitido — solo GET/HEAD (texto plano).
+          content:
+            text/plain:
+              schema: { type: string }
+
+  /readyz:
+    get:
+      tags: [operación]
+      summary: Readiness — ¿puede recibir tráfico?
+      description: Arrancado y con todos los probes (p. ej. disco) en verde.
+      security: []
+      responses:
+        "200":
+          description: Listo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadinessStatus" }
+        "503":
+          description: No listo (arrancando o algún probe falla).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadinessStatus" }
+        "405":
+          description: Método no permitido — solo GET/HEAD (texto plano).
+          content:
+            text/plain:
+              schema: { type: string }
+
+  /metrics:
+    get:
+      tags: [operación]
+      summary: Métricas en formato de exposición de Prometheus.
+      security: []
+      responses:
+        "200":
+          description: Métricas (text/plain; version=0.0.4).
+          content:
+            text/plain:
+              schema: { type: string }
+
+  /api/v1/metrics/snapshot:
+    get:
+      tags: [operación]
+      summary: Snapshot estructurado de métricas en JSON.
+      description: >-
+        Misma observabilidad que `/metrics`, en JSON estructurado para la consola de
+        administración. Abierto (sin autenticación), igual que `/metrics`: son datos de
+        observabilidad, no la superficie mutante del `AdminService`.
+      security: []
+      responses:
+        "200":
+          description: Snapshot de métricas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MetricsSnapshot" }
+        "405": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/topics:
+    get:
+      tags: [topics]
+      summary: Lista los topics (paginado).
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Página de topics.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TopicPage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [topics]
+      summary: Crea un topic.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTopicRequest" }
+      responses:
+        "201":
+          description: Topic creado. La cabecera `Location` apunta al recurso.
+          headers:
+            Location:
+              schema: { type: string }
+              description: Ruta del topic creado (`/api/v1/topics/{name}`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TopicSummary" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "405": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/topics/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+        description: Nombre del topic.
+    get:
+      tags: [topics]
+      summary: Describe un topic (resumen + particiones).
+      responses:
+        "200":
+          description: Descripción del topic.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TopicDescription" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    patch:
+      tags: [topics]
+      summary: Altera la config mutable en caliente del topic (retención).
+      description: >-
+        Semántica PATCH: solo se aplican los campos presentes (`retentionMs`, `retentionBytes`).
+        `segmentBytes` es create-only (horneado en los segmentos escritos): incluirlo devuelve 400.
+        El cambio se publica a todos los núcleos y el barrido de retención lo aplica en el siguiente
+        ciclo (ADR-0036/0037).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlterTopicRequest" }
+      responses:
+        "200":
+          description: Config actualizada; devuelve el resumen del topic.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TopicSummary" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [topics]
+      summary: Borra un topic y sus datos en disco.
+      description: >-
+        Elimina el topic del registro y borra sus datos en disco (el `.log`/`.index` de
+        cada partición). Re-declarar el mismo nombre arranca en vacío: no hay resurrección
+        de datos "borrados".
+      responses:
+        "204": { description: Borrado (sin contenido). }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "405": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/groups:
+    get:
+      tags: [groups]
+      summary: Lista los grupos de consumidores (paginado).
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Página de grupos.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupPage" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "405": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/groups/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Identificador del grupo de consumidores.
+    get:
+      tags: [groups]
+      summary: Describe un grupo (miembros, offsets confirmados y lag).
+      description: >-
+        La asignación de particiones por miembro es un blob opaco del cliente (contrato
+        Kafka) y **no se decodifica**; se expone solo lo estructurado (id de miembro, tamaño
+        de la suscripción). El `lag` de cada partición es `highWatermark - committedOffset`.
+      responses:
+        "200":
+          description: Descripción del grupo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GroupDescription" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "405": { $ref: "#/components/responses/Problem" }
+
+  /api/v1/stream:
+    get:
+      tags: [operación]
+      summary: Stream de métricas en tiempo real (Server-Sent Events).
+      description: >-
+        Conexión SSE (`text/event-stream`, sin `Content-Length`, keep-alive): emite un evento
+        `metrics` con el snapshot de métricas (mismo payload que `/api/v1/metrics/snapshot`) con
+        una cadencia. Abierto como el resto de la observabilidad. El navegador lo consume con
+        `EventSource` (reconexión automática). ADR-0038.
+      security: []
+      responses:
+        "200":
+          description: Stream de eventos SSE.
+          content:
+            text/event-stream:
+              schema: { type: string }
+
+  /api/v1/cluster:
+    get:
+      tags: [operación]
+      summary: Estado del clúster y del consenso (Raft) por partición.
+      description: >-
+        Nodos conocidos (este nodo + peers) y estado Raft de las particiones replicadas de este
+        nodo: líder, rol, término, commitIndex (= high-watermark), lastLogIndex, época y retraso
+        de cada seguidor. Sin particiones replicadas (`replicationFactor == 1`), `partitions` va
+        vacío.
+      responses:
+        "200":
+          description: Estado del clúster.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClusterInfo" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "405": { $ref: "#/components/responses/Problem" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT firmado (HS256) con el secreto del nodo. Solo se exige si el nodo arrancó con
+        `--jwt-secret`; en ese caso, las rutas `/api/v1/*` devuelven 401 sin un token válido.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+      description: Número de página (1-based).
+    Size:
+      name: size
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      description: Elementos por página (acotado a [1, 100]).
+
+  responses:
+    Problem:
+      description: Error con detalle RFC 7807.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ProblemDetail" }
+
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, draining] }
+      required: [status]
+
+    ReadinessStatus:
+      type: object
+      properties:
+        status: { type: string, enum: [ready, not_ready] }
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              healthy: { type: boolean }
+              detail: { type: string }
+            required: [name, healthy]
+      required: [status]
+
+    CreateTopicRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: Nombre del topic (no vacío). }
+        partitionCount: { type: integer, default: 1, minimum: 1 }
+        replicationFactor: { type: integer, default: 1, minimum: 1 }
+        segmentBytes: { type: integer, format: int64, default: 0, description: "0 = por defecto del broker." }
+        retentionMs: { type: integer, format: int64, default: -1, description: "-1 = sin límite." }
+        retentionBytes: { type: integer, format: int64, default: -1, description: "-1 = sin límite." }
+
+    TopicSummary:
+      type: object
+      properties:
+        name: { type: string }
+        partitionCount: { type: integer }
+        replicationFactor: { type: integer }
+        createdAtMs: { type: integer, format: int64 }
+      required: [name, partitionCount, replicationFactor, createdAtMs]
+
+    PartitionInfo:
+      type: object
+      properties:
+        id: { type: integer }
+        leader: { type: integer, description: Nodo líder (este nodo en Fase 1b). }
+        highWatermark: { type: integer, format: int64 }
+        leaderEpoch: { type: integer, format: int64 }
+      required: [id, leader, highWatermark, leaderEpoch]
+
+    AlterTopicRequest:
+      type: object
+      description: "Cambios de config mutables en caliente (PATCH parcial). `segmentBytes` no se admite."
+      properties:
+        retentionMs: { type: integer, format: int64, description: "Retención por tiempo (-1 = sin límite)." }
+        retentionBytes: { type: integer, format: int64, description: "Retención por tamaño (-1 = sin límite)." }
+
+    TopicConfigView:
+      type: object
+      properties:
+        retentionMs: { type: integer, format: int64 }
+        retentionBytes: { type: integer, format: int64 }
+        segmentBytes: { type: integer, format: int64, description: "create-only." }
+      required: [retentionMs, retentionBytes, segmentBytes]
+
+    TopicDescription:
+      type: object
+      properties:
+        name: { type: string }
+        partitionCount: { type: integer }
+        replicationFactor: { type: integer }
+        createdAtMs: { type: integer, format: int64 }
+        config: { $ref: "#/components/schemas/TopicConfigView" }
+        partitions:
+          type: array
+          items: { $ref: "#/components/schemas/PartitionInfo" }
+      required: [name, partitionCount, replicationFactor, createdAtMs, config, partitions]
+
+    GroupSummary:
+      type: object
+      properties:
+        groupId: { type: string }
+        state:
+          type: string
+          enum: [Empty, PreparingRebalance, CompletingRebalance, Stable, Dead, Unknown]
+        generation: { type: integer }
+        memberCount: { type: integer, format: int64 }
+      required: [groupId, state, generation, memberCount]
+
+    TopicPage:
+      type: object
+      properties:
+        page: { type: integer }
+        size: { type: integer }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/TopicSummary" }
+      required: [page, size, items]
+
+    GroupPage:
+      type: object
+      properties:
+        page: { type: integer }
+        size: { type: integer }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/GroupSummary" }
+      required: [page, size, items]
+
+    MetricSample:
+      type: object
+      description: >-
+        Una serie de métrica. `counter`/`gauge` aportan `value`; `histogram` aporta `count`
+        (total = cubo +Inf), `sum` y `buckets` (cubos acumulativos finitos).
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [counter, gauge, histogram] }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+        value: { type: number, description: "Solo counter/gauge." }
+        count: { type: integer, format: int64, description: "Solo histogram (cubo +Inf)." }
+        sum: { type: number, description: "Solo histogram." }
+        buckets:
+          type: array
+          description: "Solo histogram: cubos acumulativos finitos (el +Inf es `count`)."
+          items:
+            type: object
+            properties:
+              le: { type: number, description: Límite superior del cubo. }
+              cumulativeCount: { type: integer, format: int64 }
+            required: [le, cumulativeCount]
+      required: [name, type, labels]
+
+    MetricsSnapshot:
+      type: object
+      properties:
+        metrics:
+          type: array
+          items: { $ref: "#/components/schemas/MetricSample" }
+      required: [metrics]
+
+    GroupMember:
+      type: object
+      properties:
+        memberId: { type: string }
+        subscriptionBytes: { type: integer, format: int64, description: "Tamaño de la suscripción opaca (no se decodifica)." }
+      required: [memberId, subscriptionBytes]
+
+    GroupPartitionOffset:
+      type: object
+      properties:
+        topic: { type: string }
+        partition: { type: integer }
+        committedOffset: { type: integer, format: int64 }
+        highWatermark: { type: integer, format: int64 }
+        lag: { type: integer, format: int64, description: "highWatermark - committedOffset (>= 0)." }
+      required: [topic, partition, committedOffset, highWatermark, lag]
+
+    GroupDescription:
+      type: object
+      properties:
+        groupId: { type: string }
+        state:
+          type: string
+          enum: [Empty, PreparingRebalance, CompletingRebalance, Stable, Dead, Unknown]
+        generation: { type: integer }
+        leaderId: { type: string }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/GroupMember" }
+        offsets:
+          type: array
+          items: { $ref: "#/components/schemas/GroupPartitionOffset" }
+      required: [groupId, state, generation, leaderId, members, offsets]
+
+    NodeInfo:
+      type: object
+      properties:
+        nodeId: { type: integer }
+        isSelf: { type: boolean }
+      required: [nodeId, isSelf]
+
+    FollowerProgress:
+      type: object
+      properties:
+        node: { type: integer }
+        matchIndex: { type: integer, format: int64 }
+        lag: { type: integer, format: int64, description: "lastLogIndex - matchIndex (>= 0)." }
+      required: [node, matchIndex, lag]
+
+    PartitionRaftInfo:
+      type: object
+      properties:
+        topic: { type: string }
+        partition: { type: integer }
+        leader: { type: integer, description: "NodeId del líder conocido, o -1 si se desconoce." }
+        role:
+          type: string
+          enum: [follower, pre_candidate, candidate, leader, unknown]
+        term: { type: integer, format: int64 }
+        commitIndex: { type: integer, format: int64, description: "= high-watermark de la réplica." }
+        lastLogIndex: { type: integer, format: int64 }
+        leaderEpoch: { type: integer, format: int64 }
+        followers:
+          type: array
+          description: "Progreso por seguidor (solo poblado si esta réplica es líder)."
+          items: { $ref: "#/components/schemas/FollowerProgress" }
+      required: [topic, partition, leader, role, term, commitIndex, lastLogIndex, leaderEpoch, followers]
+
+    ClusterInfo:
+      type: object
+      properties:
+        nodeId: { type: integer, description: Este nodo. }
+        nodes:
+          type: array
+          items: { $ref: "#/components/schemas/NodeInfo" }
+        partitions:
+          type: array
+          items: { $ref: "#/components/schemas/PartitionRaftInfo" }
+      required: [nodeId, nodes, partitions]
+
+    ProblemDetail:
+      type: object
+      description: Detalle de error según RFC 7807.
+      properties:
+        type: { type: string, format: uri, default: "about:blank" }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+      required: [title, status]
+
+security:
+  - bearerAuth: []

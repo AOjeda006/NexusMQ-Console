@@ -75,8 +75,8 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
 ## Estado actual
 
 Fase 0 en curso. Decisiones de arranque cerradas (main directo + push + Docker). `pnpm 11.13.1`
-instalado. **F0.1 hecho** (monorepo verde: install/build/lint/typecheck/test).
-**Siguiente: F0.2 — `packages/contract`.**
+instalado. **F0.1 y F0.2 hechos** (monorepo verde + contrato generado del OpenAPI, importable desde
+web y bff). **Siguiente: F0.3 — CI en GitHub Actions.**
 
 ---
 
@@ -90,9 +90,12 @@ instalado. **F0.1 hecho** (monorepo verde: install/build/lint/typecheck/test).
   *AC:* `pnpm install`, `pnpm build`, `pnpm lint`, `pnpm typecheck` verdes en un árbol vacío.
   ✔ install/build/lint/typecheck/test verdes; aprobación de build scripts (esbuild) vía
   `pnpm-workspace.yaml` (`allowBuilds`).
-- [ ] **F0.2 `packages/contract`** — vendoriza `openapi.yaml` de NexusMQ; script `sync:openapi`;
+- [x] **F0.2 `packages/contract`** — vendoriza `openapi.yaml` de NexusMQ; script `sync:openapi`;
   `generate` con `openapi-typescript`; exporta `openapi-fetch` tipado + tipos.
   *AC:* `pnpm --filter @nexusmq/contract generate` produce tipos; se importa desde web y bff sin error.
+  ✔ `openapi.yaml` vendorizado (LF, canónico de GitHub); `sync:openapi` verificado con descarga real;
+  `generate` produce `paths/components/operations`; `createNexusMqClient` (openapi-fetch) exportado;
+  web y bff importan `@nexusmq/contract` y typecheck pasa. Turbo encadena `generate → build/typecheck`.
 - [ ] **F0.3 CI (GitHub Actions)** — workflow que en cada push corre install + lint + typecheck +
   build + test. *AC:* workflow en verde en GitHub.
 - [ ] **F0.4 Firma e identidad** — `.claude/settings.json` colocado; verificar commits **Verified**

@@ -2,6 +2,7 @@
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import globals from 'globals';
 
 /**
  * Configuración ESLint (flat) compartida por todo el monorepo.
@@ -29,6 +30,13 @@ export default tseslint.config(
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  {
+    // Scripts de tooling y ficheros de config en JS plano: entorno Node.
+    files: ['**/*.{js,cjs,mjs}', '**/scripts/**/*.{ts,mts}'],
+    languageOptions: {
+      globals: { ...globals.node },
     },
   },
 );
