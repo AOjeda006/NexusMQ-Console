@@ -159,8 +159,20 @@ tema) + **cuatro wrappers base** (`EChart`, `UplotChart`, `VisxAreaChart`, `Thre
 toman color de la paleta en orden fijo con grid/ejes recesivos; laboratorio `/lab` con carga
 diferida que muestra una gráfica de cada librería. **Verificado en navegador** (Playwright): 2 e2e
 —las 4 gráficas renderizan (3 canvas + visx SVG, WebGL incluido) y respetan el tema oscuro— con
-capturas light/dark revisadas. Repo verde. **Siguiente: F2.4 — Tiempo real** (hook `useLiveStream`
-sobre `EventSource` del SSE del BFF, con reconexión y **fallback a polling** de `metrics/snapshot`).
+capturas light/dark revisadas. Repo verde.
+
+**F2.4 COMPLETA**: tiempo real. Hook `useLiveStream` sobre `EventSource` (SSE del BFF) con **fallback
+a polling** del snapshot ante fallo del SSE, sin romper la UI. Laboratorio `/live-lab` con
+«Forzar fallo»/«Restaurar». **Verificado en navegador full-stack**: push en vivo (el BFF reemite los
+frames del doble del broker), caída a polling al forzar el fallo y vuelta a vivo al restaurar;
+capturas revisadas.
+
+**★ FASE 2 (SPA base + sistema de diseño) COMPLETA** (F2.1–F2.4). SPA React/Vite con shell
+navegable, sistema de diseño dataviz (light/dark, AA), capa de datos tipada + auth confinada, arsenal
+de visualización (ECharts/uPlot/visx/react-three-fiber) y tiempo real con fallback. Repo verde en
+todo el monorepo: typecheck/lint/build/test (51 del BFF) + e2e del shell/viz (7, Playwright sobre
+`vite preview`) + e2e full-stack (6, BFF real sirviendo la SPA y proxyando a un doble del broker).
+**Siguiente: Fase 3 — Vistas v1** (F3.1: Dashboard vivo), pendiente de arrancar en una próxima sesión.
 
 ---
 
@@ -335,9 +347,23 @@ sobre `EventSource` del SSE del BFF, con reconexión y **fallback a polling** de
   ejemplo. **Verificado en navegador** (Playwright/Chromium): 2 e2e —render de las 4 (3 `<canvas>` +
   visx SVG, WebGL incluido) y respeto del tema oscuro— con capturas light/dark revisadas.
   typecheck/lint/build/test verdes.
-- [ ] **F2.4 Tiempo real** — hook `useLiveStream` sobre `EventSource` (SSE del BFF) con reconexión y
+- [x] **F2.4 Tiempo real** — hook `useLiveStream` sobre `EventSource` (SSE del BFF) con reconexión y
   **fallback a polling** de `metrics/snapshot`. *AC:* con SSE llega push en vivo; matando el SSE, cae
   a polling sin romper la UI.
+  ✔ `useLiveStream` (`features/live/`): abre un `EventSource` al SSE del BFF, expone
+  `{data, status, source, lastUpdatedAtMs}` y, ante **error fatal** del `EventSource` (readyState
+  CLOSED) o varios reintentos transitorios seguidos, **cae a polling** del snapshot **sin romper la
+  UI** (el último dato persiste, `source` pasa a `polling`); un fallo puntual del snapshot se
+  señaliza (`error`) y se reintenta. Se apoya en que el SSE del BFF ya es resiliente (latidos +
+  reconexión al broker): un corte del *broker* no tumba este `EventSource`, así que el fallback cubre
+  que el propio plano SSE del BFF deje de estar disponible; por eso el fallo se provoca en el salto
+  SPA→BFF. Laboratorio `/live-lab` (ruta abierta, sin login) con estado en vivo (color de estado +
+  icono + etiqueta) y botones «Forzar fallo de SSE»/«Restaurar SSE». **Verificado en navegador
+  full-stack** (`e2e-fullstack/live.spec.ts`): el BFF reemite los frames del doble del broker → **push
+  en vivo** (la marca de actualización avanza sola), al forzar el fallo **cae a polling** (snapshot
+  creciente, UI intacta) y al restaurar vuelve a **vivo**; capturas live/polling revisadas. El doble
+  del broker se amplió con `/api/v1/stream` (SSE) y `/api/v1/metrics/snapshot`. Repo verde
+  (typecheck/lint/build/test + ambos e2e).
 
 ### Fase 3 — Vistas v1
 - [ ] **F3.1 Dashboard vivo** — throughput, latencias p50/p99/p999, salud del cluster, estado Raft;

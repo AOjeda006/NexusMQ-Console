@@ -52,6 +52,24 @@ function bearer(req) {
     : undefined;
 }
 
+/** Snapshot: contador creciente, para que el polling del fallback se vea avanzar. */
+let snapshotCounter = 0;
+
+/** SSE `metrics`: emite un frame cada 400 ms hasta que el cliente cierra. */
+function serveStream(req, res) {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache',
+    connection: 'keep-alive',
+  });
+  let seq = 0;
+  const timer = setInterval(() => {
+    seq += 1;
+    res.write(`event: metrics\ndata: ${JSON.stringify({ seq, generatedAtMs: Date.now() })}\n\n`);
+  }, 400);
+  req.on('close', () => clearInterval(timer));
+}
+
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
@@ -59,6 +77,21 @@ const server = createServer((req, res) => {
 
   if (method === 'GET' && path === '/healthz') {
     sendJson(res, 200, { status: 'ok' });
+    return;
+  }
+
+  // Rutas abiertas (contract security: []): SSE y snapshot no exigen Bearer.
+  if (method === 'GET' && path === '/api/v1/stream') {
+    serveStream(req, res);
+    return;
+  }
+  if (method === 'GET' && path === '/api/v1/metrics/snapshot') {
+    snapshotCounter += 1;
+    sendJson(res, 200, {
+      generatedAtMs: Date.now(),
+      messagesIn: snapshotCounter * 100,
+      topics: TOPICS.length,
+    });
     return;
   }
 

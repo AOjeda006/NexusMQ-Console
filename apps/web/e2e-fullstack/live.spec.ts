@@ -1,0 +1,39 @@
+import { expect, test } from '@playwright/test';
+
+const SHOTS_DIR =
+  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
+
+/**
+ * E2E full-stack del tiempo real (F2.4): `/live-lab` usa `useLiveStream` contra
+ * el **SSE real del BFF** (que reemite los frames del doble del broker) y su
+ * fallback a polling del snapshot. Rutas abiertas ⇒ no requiere login.
+ */
+test('recibe push por SSE y cae a polling al fallar el SSE, sin romper la UI', async ({ page }) => {
+  await page.goto('/live-lab');
+
+  const panel = page.getByTestId('live-panel');
+
+  // 1) SSE en vivo: el BFF reemite los frames del doble del broker.
+  await expect(panel).toHaveAttribute('data-status', 'live');
+  await expect(panel).toHaveAttribute('data-source', 'sse');
+
+  // Llega push en vivo: la marca de última actualización avanza sola.
+  const firstUpdated = await panel.getAttribute('data-updated');
+  await expect.poll(() => panel.getAttribute('data-updated')).not.toBe(firstUpdated);
+  await page.screenshot({ path: `${SHOTS_DIR}/f24-live.png`, fullPage: true });
+
+  // 2) Forzar el fallo del SSE ⇒ cae a polling del snapshot.
+  await page.getByRole('button', { name: 'Forzar fallo de SSE' }).click();
+  await expect(panel).toHaveAttribute('data-status', 'polling');
+  await expect(panel).toHaveAttribute('data-source', 'polling');
+
+  // El polling sigue actualizando (snapshot creciente): la UI no se rompe.
+  const polledUpdated = await panel.getAttribute('data-updated');
+  await expect.poll(() => panel.getAttribute('data-updated')).not.toBe(polledUpdated);
+  await page.screenshot({ path: `${SHOTS_DIR}/f24-polling.png`, fullPage: true });
+
+  // 3) Restaurar el SSE ⇒ vuelve a estar en vivo.
+  await page.getByRole('button', { name: 'Restaurar SSE' }).click();
+  await expect(panel).toHaveAttribute('data-status', 'live');
+  await expect(panel).toHaveAttribute('data-source', 'sse');
+});

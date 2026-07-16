@@ -25,6 +25,11 @@ export const router = createBrowserRouter([
     path: '/lab',
     lazy: async () => ({ Component: (await import('@/routes/viz-lab-page')).VizLabPage }),
   },
+  // Laboratorio de tiempo real (F2.4): SSE del BFF con fallback a polling.
+  {
+    path: '/live-lab',
+    lazy: async () => ({ Component: (await import('@/routes/live-lab-page')).LiveLabPage }),
+  },
   {
     path: '/',
     element: (
