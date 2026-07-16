@@ -15,6 +15,23 @@ export interface BrokerDouble {
   close(): Promise<void>;
 }
 
+/** Opciones del doble. `requireAuth` simula un broker arrancado con `--jwt-secret`. */
+export interface BrokerDoubleOptions {
+  /** Si `true`, las rutas `/api/v1/*` (salvo observabilidad abierta) exigen Bearer. */
+  readonly requireAuth?: boolean;
+}
+
+/** Token que el doble considera **inválido** (para probar el rechazo del login). */
+export const INVALID_TOKEN = 'token-malo';
+
+function extractBearer(req: IncomingMessage): string | undefined {
+  const header = req.headers['authorization'];
+  if (typeof header !== 'string' || !header.startsWith('Bearer ')) {
+    return undefined;
+  }
+  return header.slice('Bearer '.length);
+}
+
 interface ProblemBody {
   readonly type: string;
   readonly title: string;
@@ -46,12 +63,16 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
+async function route(
+  req: IncomingMessage,
+  res: ServerResponse,
+  requireAuth: boolean,
+): Promise<void> {
   const method = req.method ?? 'GET';
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   const path = url.pathname;
 
-  // --- Observabilidad abierta -------------------------------------------------
+  // --- Observabilidad abierta (sin auth, contract security: []) ---------------
   if (method === 'GET' && path === '/healthz') {
     sendJson(res, 200, { status: 'ok' });
     return;
@@ -63,6 +84,15 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (method === 'GET' && path === '/api/v1/metrics/snapshot') {
     sendJson(res, 200, { generatedAtMs: 1_700_000_000_000, topics: 0, messagesIn: 0 });
     return;
+  }
+
+  // --- Puerta de auth (modo secreto): el resto de /api/v1/* exige Bearer ------
+  if (requireAuth) {
+    const token = extractBearer(req);
+    if (token === undefined || token === INVALID_TOKEN) {
+      sendProblem(res, 401, 'No autorizado', 'Falta un token válido (Bearer).');
+      return;
+    }
   }
 
   // --- Topics -----------------------------------------------------------------
@@ -149,9 +179,10 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
 }
 
 /** Arranca el doble en un puerto libre de `127.0.0.1` y devuelve su URL base. */
-export async function startBrokerDouble(): Promise<BrokerDouble> {
+export async function startBrokerDouble(options: BrokerDoubleOptions = {}): Promise<BrokerDouble> {
+  const requireAuth = options.requireAuth ?? false;
   const server: Server = createServer((req, res) => {
-    void route(req, res).catch(() => {
+    void route(req, res, requireAuth).catch(() => {
       if (!res.headersSent) {
         sendProblem(res, 500, 'Error del doble');
       }

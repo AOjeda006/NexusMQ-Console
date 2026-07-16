@@ -82,6 +82,17 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
   firma. Si el broker corre **sin `--jwt-secret`**, la consola funciona en **modo abierto** (sin
   login). El token del broker **no puede aparecer nunca** en una respuesta al navegador (habrá un
   test que lo garantice).
+- **2026-07-16 — Mecánica de F1.4 (auth) — detección de modo por sondeo, cookie de sesión opaca y
+  firmada.** El BFF **no conoce el secreto** del broker, así que descubre si el broker exige auth
+  **sondeando su comportamiento**: una petición a un endpoint protegido (`GET /api/v1/topics?size=1`)
+  **sin** token ⇒ `401` significa *modo secreto* (auth requerida); `2xx` significa *modo abierto*. El
+  resultado se **cachea** por instancia. Sesión = **id aleatorio de 256 bits** guardado en servidor;
+  la cookie httpOnly lleva `id.HMAC-SHA256(id, SESSION_SECRET)` (se usa el secreto documentado en
+  F1.2; verificación en tiempo constante). El **guard por petición**: con sesión ⇒ inyecta el token
+  del broker en el proxy; sin sesión y modo secreto ⇒ **401** propio; sin sesión y modo abierto ⇒
+  deja pasar sin token. `POST /api/auth/login` valida el token contra el broker; `POST /api/auth/logout`
+  destruye la sesión; `GET /api/auth/session` solo informa `{ authenticated }`. (esencial — deriva
+  del modelo de auth de arriba)
 - **2026-07-16 — Tooling del BFF (reversible).** NestJS 11 sobre **Express**; el paquete `apps/bff`
   emite **CommonJS** (idiomático en Nest; el resto del monorepo sigue ESM), con **DI por
   constructor** vía `reflect-metadata` (`experimentalDecorators` + `emitDecoratorMetadata`). El
@@ -107,8 +118,14 @@ REST *passthrough* del broker con `fetch` (undici) — topics CRUD+`PATCH`, grou
 `metrics/snapshot`, `healthz`/`readyz`—; controllers finos que reemiten status+cuerpo+`Location`
 *verbatim*; validación en el borde con `ZodValidationPipe`; `ProblemDetailsFilter` global mapea a
 RFC 7807 solo los errores del BFF (400 de borde, 502 broker caído) y propaga intactos los 4xx del
-broker. 19 e2e contra un doble del broker (puerto efímero). Typecheck/lint/build/test verdes (27
-tests). **Siguiente: Fase 1 — BFF, ítem F1.4** (auth/JWT confinado; leer `herramientas/autenticacion.md` antes).
+broker. 19 e2e contra un doble del broker (puerto efímero). **F1.4 COMPLETA**: auth con **JWT
+confinado** (el operador pega su token). Login valida contra el broker y guarda el token en un almacén
+de sesiones **en memoria**; al navegador solo una cookie **httpOnly** firmada (HMAC con
+`SESSION_SECRET`). `SessionAuthGuard` global protege `topics`/`groups`/`cluster`: inyecta el token
+server-side, 401 sin sesión en modo secreto y deja pasar en **modo abierto** (detectado por sondeo).
+7 e2e con aserciones de **no-fuga** del token. Typecheck/lint/build/test verdes (34 tests).
+**Siguiente: Fase 1 — BFF, ítem F1.5** (terminación SSE; leer `herramientas/tiempo-real.md` y
+`fundamentos/redes/convenciones.md` antes).
 
 ---
 
@@ -173,10 +190,22 @@ tests). **Siguiente: Fase 1 — BFF, ítem F1.4** (auth/JWT confinado; leer `her
   dispatcher undici propio si `BROKER_TLS_REJECT_UNAUTHORIZED=false`. e2e (19 casos) contra un doble
   del broker (`test/broker-double.ts`, puerto efímero): éxito por endpoint, 404/409 del broker, 400 de
   borde (size, name, segmentBytes) y 502 con broker caído. typecheck/lint/build/test verdes (27 tests).
-- [ ] **F1.4 Auth/JWT confinado** — login → el BFF obtiene y **guarda el JWT del broker en
+- [x] **F1.4 Auth/JWT confinado** — login → el BFF obtiene y **guarda el JWT del broker en
   servidor**; al navegador, cookie de sesión **httpOnly**. Guard por petición; logout.
   *AC:* el token del broker **no** aparece nunca en respuestas al navegador; rutas protegidas dan 401
   sin sesión.
+  ✔ Modelo "el operador pega su token": `POST /api/auth/login` valida el token contra el broker
+  (sondeo a `/api/v1/topics`), lo guarda en un **almacén de sesiones en memoria** y responde solo con
+  una cookie **httpOnly** `nexusmq_session=id.HMAC-SHA256(id, SESSION_SECRET)` (id aleatorio de 256
+  bits; verificación en tiempo constante). `SessionAuthGuard` **global** (`APP_GUARD`) sobre las rutas
+  `@Protected()` (topics/groups/cluster): con sesión inyecta el token confinado en el proxy
+  (`@BrokerToken()`); sin sesión responde **401** propio si el broker exige auth, o deja pasar en
+  **modo abierto**. El modo se descubre por **sondeo del comportamiento** (el BFF no conoce el secreto
+  HS256) y se cachea. `POST /api/auth/logout` y `GET /api/auth/session` (solo `{authenticated}`). Para
+  evitar el ciclo de módulos, `BrokerModule` es `@Global()` y `BrokerModule` no importa `AuthModule`.
+  e2e (7 casos): 401 sin sesión, login inválido/válido, proxy con sesión, `session`, logout y **modo
+  abierto**; con **aserciones de no-fuga** (el token no aparece en cuerpo, cabeceras ni cookie).
+  typecheck/lint/build/test verdes (34 tests).
 - [ ] **F1.5 Terminación SSE** — conectar a `GET /api/v1/stream` del broker y **reemitir** SSE al
   navegador (mismo origen); reconexión, timeout y cierre limpio; backpressure acotado.
   *AC:* un cliente `EventSource` contra el BFF recibe frames; al caer el broker, el BFF reconecta sin
