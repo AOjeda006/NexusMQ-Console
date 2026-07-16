@@ -127,8 +127,11 @@ server-side, 401 sin sesión en modo secreto y deja pasar en **modo abierto** (d
 reemite el `GET /api/v1/stream` del broker al navegador (`text/event-stream`, latido, mismo criterio
 TLS) con **reconexión backoff+jitter** sin tumbar el `EventSource`, timeouts de conexión/inactividad
 y cierre limpio al desconectar el cliente. 3 e2e (cliente SSE crudo): frames, reconexión y cierre
-limpio. Typecheck/lint/build/test verdes (37 tests). **Siguiente: Fase 1 — BFF, ítem F1.6**
-(Prometheus data source `query_range` con degradación limpia sin `PROMETHEUS_URL`).
+limpio. Typecheck/lint/build/test verdes (37 tests). **F1.6 COMPLETA**: data source de Prometheus —
+`GET /api/history/query_range` (+`/status`) con **degradación limpia** (sin `PROMETHEUS_URL` ⇒ `200
+{available:false}`; con él, series reales), señalizando consulta inválida (400) y Prometheus caído
+(502). 7 e2e con un doble de Prometheus. Typecheck/lint/build/test verdes (44 tests). **Siguiente:
+Fase 1 — BFF, ítem F1.7** (servir el build estático de `apps/web` en producción) — último de la Fase 1.
 
 ---
 
@@ -224,9 +227,18 @@ limpio. Typecheck/lint/build/test verdes (37 tests). **Siguiente: Fase 1 — BFF
   conexión (doble que cierra tras cada frame ⇒ ≥2 conexiones upstream, cliente sin corte); y **cierre
   limpio** (al irse el cliente, el upstream del doble queda en 0). typecheck/lint/build/test verdes
   (37 tests).
-- [ ] **F1.6 Prometheus data source** — proxy de `query_range` con **degradación limpia**: si no hay
+- [x] **F1.6 Prometheus data source** — proxy de `query_range` con **degradación limpia**: si no hay
   `PROMETHEUS_URL`, responde "no disponible" sin romper. *AC:* con y sin Prometheus, el BFF responde
   coherente (datos / vacío señalizado).
+  ✔ `PrometheusController` (`GET /api/history/query_range` + `GET /api/history/status`, rutas
+  abiertas) delega en `PrometheusService.queryRange()`: **sin `PROMETHEUS_URL`** responde `200
+  {available:false, reason}` (degradación limpia, no error); **con Prometheus** proxya
+  `/api/v1/query_range` (`fetch` undici) y devuelve `{available:true, resultType, result}`. Los fallos
+  se **señalizan**: consulta inválida → 400 (propaga el `status:"error"` de Prometheus), red/servidor
+  caído → 502; ambos en `application/problem+json` vía el filtro global. Validación en el borde
+  (`query`/`start`/`end`/`step` obligatorios). e2e (7 casos) con un doble de Prometheus: status y
+  query con/sin Prometheus, 400 de consulta inválida, 400 de borde y 502 inaccesible.
+  typecheck/lint/build/test verdes (44 tests).
 - [ ] **F1.7 Sirve la SPA** — en prod, el BFF sirve el build estático de `apps/web` (mismo origen).
   *AC:* build de producción del BFF sirve la SPA en `/`.
 
