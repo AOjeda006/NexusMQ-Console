@@ -267,6 +267,22 @@ ejemplo; hardening (cabeceras/CSP, mismo origen, validación) + README de despli
 v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/build/test (contract 1 + BFF
 59 + web 19) + e2e shell/viz (7) + e2e full-stack (14).
 
+**★ FASE 5 (Reconciliación con el broker real) COMPLETA** (F5.1–F5.9). Raíz del bug: el broker **no**
+emite `nexusmq_*` sino `nexus_broker_*` con `{api,protocol}` (y `connections_active{plane}`); los
+dobles mentían y los e2e pasaban contra un contrato falso. Corregido de punta a punta: `pnpm dev`
+propaga las env del BFF (F5.1); Dashboard/Historia remapeados a los nombres/labels REALES con
+**filtrado por label** y degradación honesta «—» (F5.2); tile de **conexiones activas** por `plane`
+(F5.3); sesiones del BFF con **TTL + purga** perezosa y periódica (F5.4); **SSE con backpressure**
+acotado que respeta `write()` (F5.5); `query_range` con **allow-list de PromQL construida en
+servidor** (`@Protected`), el cliente solo elige un id (F5.6); **gate de login** `CONSOLE_REQUIRE_LOGIN`
+(default true) que exige sesión aunque el broker esté abierto y protege `metrics/snapshot` (F5.7);
+**re-sondeo del modo del broker con TTL** (re-detecta un reinicio) y **todos los dobles alineados** al
+contrato real (F5.8); y `@see` clicable al catálogo `docs/metrics.md` del broker en los tres módulos
+que fijan nombres (F5.9). **Degradación honesta verificada**: Grupos vacíos → empty-state; Raft-3D
+single-node RF=1 → nodo con halo, sin aristas, «sin particiones replicadas» (no son bugs de la consola:
+dependen del broker). Repo verde en todo el monorepo: typecheck (5/5) + lint + build (4/4) +
+test (BFF 82 + web 22) + **e2e full-stack (14/14)**.
+
 ---
 
 ## Checklist
