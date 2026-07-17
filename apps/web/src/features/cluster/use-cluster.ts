@@ -62,6 +62,35 @@ export function summarizeCluster(cluster: ClusterInfo): ClusterHealth {
   };
 }
 
+/** Retraso máximo de cualquier seguidor de una partición (0 si no hay seguidores). */
+export function maxFollowerLag(partition: PartitionRaftInfo): number {
+  return partition.followers.reduce((max, f) => Math.max(max, f.lag), 0);
+}
+
+/** Estado Raft de una partición relevante para el detalle del topic. */
+export interface PartitionRaftView {
+  readonly role: PartitionRaftInfo['role'];
+  readonly term: number;
+  readonly maxLag: number;
+}
+
+/**
+ * Indexa el estado Raft por `topic#partición` para cruzarlo con las particiones
+ * que devuelve el describe de un topic (F3.4): así el detalle del topic muestra,
+ * junto al líder/HWM/época, el **lag de réplica** que solo vive en `cluster`.
+ */
+export function raftIndexByPartition(cluster: ClusterInfo): Map<string, PartitionRaftView> {
+  const index = new Map<string, PartitionRaftView>();
+  for (const partition of cluster.partitions) {
+    index.set(`${partition.topic}#${partition.partition}`, {
+      role: partition.role,
+      term: partition.term,
+      maxLag: maxFollowerLag(partition),
+    });
+  }
+  return index;
+}
+
 /**
  * Estado del clúster vía BFF, con **sondeo** periódico: `GET /api/v1/cluster` no
  * viaja por el SSE (que solo lleva métricas), así que el Dashboard lo refresca

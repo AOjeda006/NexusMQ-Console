@@ -1,13 +1,15 @@
 import { Trash2, X } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ProblemAlert } from '@/components/ui/problem-alert';
 import { Spinner } from '@/components/ui/spinner';
+import { raftIndexByPartition, useCluster } from '@/features/cluster/use-cluster';
 import { problemFrom } from '@/lib/problem';
 
 import { DeleteTopicDialog } from './delete-topic-dialog';
+import { PartitionsTable } from './partitions-table';
 import { RetentionForm } from './retention-form';
 import { useTopic } from './use-topic';
 
@@ -28,6 +30,11 @@ export function TopicDetail({
   readonly onClose: () => void;
 }): ReactNode {
   const { data, isPending, isError, error, refetch } = useTopic(name);
+  const cluster = useCluster();
+  const raft = useMemo(
+    () => (cluster.data ? raftIndexByPartition(cluster.data) : null),
+    [cluster.data],
+  );
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
@@ -72,45 +79,15 @@ export function TopicDetail({
           </section>
 
           <section className="space-y-2">
-            <h3 className="text-sm font-medium text-foreground">
-              Particiones ({data.partitions.length})
-            </h3>
-            <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th scope="col" className="px-3 py-2.5 font-medium">
-                      Partición
-                    </th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-medium">
-                      Líder
-                    </th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-medium">
-                      High-watermark
-                    </th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-medium">
-                      Época
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.partitions.map((partition) => (
-                    <tr key={partition.id} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2.5 font-medium text-foreground">p{partition.id}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                        Nodo {partition.leader}
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                        {partition.highWatermark.toLocaleString('es-ES')}
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                        {partition.leaderEpoch}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-medium text-foreground">
+                Particiones ({data.partitions.length})
+              </h3>
+              <span className="text-xs text-faint-foreground">
+                Lag de réplica del consenso Raft
+              </span>
             </div>
+            <PartitionsTable topicName={name} partitions={data.partitions} raft={raft} />
           </section>
         </>
       )}

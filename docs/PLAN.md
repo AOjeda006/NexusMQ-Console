@@ -438,8 +438,16 @@ recargar** → borrar. El doble del broker pasó a **stateful**. Repo verde: typ
   con su estado → describe `analytics-pipeline` → miembros (`member-a` líder, `member-b`) y **lag real
   por partición** (p0 = 200, total 350). El doble del broker sirve `groups` (list + describe). Captura
   revisada.
-- [ ] **F3.4 Particiones** — detalle por topic (líder, high-watermark, leaderEpoch, lag).
+- [x] **F3.4 Particiones** — detalle por topic (líder, high-watermark, leaderEpoch, lag).
   *AC:* datos coherentes con el describe del topic.
+  ✔ La tabla de particiones del detalle del topic (F3.2) se **enriquece** cruzando el **describe**
+  (líder, high-watermark, época) con el estado **Raft** del clúster indexado por `topic#partición`
+  (`raftIndexByPartition`), para añadir el **lag de réplica** (retraso máximo de seguidor), que no
+  viaja en el describe. Las particiones sin réplica en el consenso (rf = 1 o no lideradas por este
+  nodo) muestran «—», coherente con el describe; el líder se marca con corona. **Verificado en
+  navegador full-stack** (`e2e-fullstack/partitions.spec.ts`): `orders.events` (6 particiones) →
+  columna «Lag réplica»; p0 (replicada, líder) con lag numérico; p3 (fuera del consenso) con «—».
+  Captura revisada.
 - [ ] **F3.5 Cluster / Raft** — nodos, roles, term, commit index, líder por partición, follower lag;
   **topología (react-three-fiber)** como pieza *showstopper*. *AC:* refleja el estado de `GET
   /cluster`; la topología responde a cambios de líder.
