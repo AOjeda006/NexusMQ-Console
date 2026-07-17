@@ -16,6 +16,10 @@ export interface VizTokens {
   readonly mutedForeground: string;
   readonly surface: string;
   readonly primary: string;
+  /** Colores de estado (fijos en ambos temas), para señales de salud en viz. */
+  readonly success: string;
+  readonly warning: string;
+  readonly critical: string;
 }
 
 const SERIES_COUNT = 8;
@@ -31,6 +35,9 @@ function readTokens(): VizTokens {
     mutedForeground: value('--muted-foreground'),
     surface: value('--surface'),
     primary: value('--primary'),
+    success: value('--success'),
+    warning: value('--warning'),
+    critical: value('--critical'),
   };
 }
 

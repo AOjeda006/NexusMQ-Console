@@ -448,9 +448,19 @@ recargar** → borrar. El doble del broker pasó a **stateful**. Repo verde: typ
   navegador full-stack** (`e2e-fullstack/partitions.spec.ts`): `orders.events` (6 particiones) →
   columna «Lag réplica»; p0 (replicada, líder) con lag numérico; p3 (fuera del consenso) con «—».
   Captura revisada.
-- [ ] **F3.5 Cluster / Raft** — nodos, roles, term, commit index, líder por partición, follower lag;
+- [x] **F3.5 Cluster / Raft** — nodos, roles, term, commit index, líder por partición, follower lag;
   **topología (react-three-fiber)** como pieza *showstopper*. *AC:* refleja el estado de `GET
   /cluster`; la topología responde a cambios de líder.
+  ✔ Vista completa de `GET /api/v1/cluster` (sondeada en vivo): nodos (con el local marcado y color de
+  paleta), agregados (particiones, término máx., lag máx.) y **tabla de consenso Raft por partición**
+  seleccionable (rol, líder, término, commit index, lag máx.). Pieza central: **topología 3D**
+  (react-three-fiber, `ClusterTopology`) —una esfera por nodo en anillo, halo en el local, y para la
+  **partición activa** el líder pulsa (glow) y proyecta **aristas de replicación** a cada seguidor con
+  **color por lag** (verde/ámbar/rojo) y grosor por retraso—. Elegir una fila de la tabla cambia la
+  partición y la escena **responde al cambio de líder**. Carga **diferida** (three.js en su propio
+  chunk). **Verificado en navegador full-stack** (`e2e-fullstack/cluster.spec.ts`): nodos + Raft real,
+  la topología 3D (WebGL) se dibuja, y al seleccionar `orders.events-p2` el líder pasa de Nodo 1 a
+  Nodo 2. Capturas revisadas (p0 con aristas líder→seguidores; p2 con líder Nodo 2).
 - [ ] **F3.6 Settings + Auth UI** — perfiles de conexión (host/puerto admin), tema, gestión de
   sesión. *AC:* cambiar de perfil reconfigura el destino del BFF; login/logout desde la UI.
 

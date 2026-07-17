@@ -67,6 +67,11 @@ export function maxFollowerLag(partition: PartitionRaftInfo): number {
   return partition.followers.reduce((max, f) => Math.max(max, f.lag), 0);
 }
 
+/** Clave estable de una partición Raft (`topic#partición`). */
+export function partitionKey(partition: PartitionRaftInfo): string {
+  return `${partition.topic}#${partition.partition}`;
+}
+
 /** Estado Raft de una partición relevante para el detalle del topic. */
 export interface PartitionRaftView {
   readonly role: PartitionRaftInfo['role'];
