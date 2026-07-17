@@ -5,18 +5,22 @@ import { NestFactory } from '@nestjs/core';
 
 import { AppModule } from './app.module';
 import { ConfigService } from './config/config.service';
+import { applySecurityHeaders } from './security/security-headers';
 import { applyStaticHosting } from './static/static-hosting';
 
 /**
  * Punto de entrada del BFF. Levanta la app Nest, habilita el apagado ordenado
- * (cierra conexiones salientes y streams SSE en `SIGTERM`/`SIGINT`), sirve la
- * SPA estática en producción y escucha en el puerto configurado.
+ * (cierra conexiones salientes y streams SSE en `SIGTERM`/`SIGINT`), aplica las
+ * cabeceras de seguridad, sirve la SPA estática en producción y escucha en el
+ * puerto configurado.
  */
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
 
   const config = app.get(ConfigService);
+  // Antes del servido estático y del router: cubre toda respuesta (SPA + API).
+  applySecurityHeaders(app, config);
   applyStaticHosting(app, config);
   await app.listen(config.port);
 

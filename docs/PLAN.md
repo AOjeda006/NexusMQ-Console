@@ -226,7 +226,21 @@ secretos por entorno. **Docker no está instalado en este entorno**: se verific�
 imagen **sin el demonio** (deploy `--prod` correcto; `node dist/main.js` sirve la SPA + `/health` +
 deep links; comando del HEALTHCHECK con exit 0/1; YAML de compose y Prometheus válido). Queda
 ejecutar `docker compose up` en una máquina con Docker (README de despliegue en F4.3).
-**Siguiente: F4.3 — Hardening (cabeceras, CORS mismo-origen, validación) + README de despliegue.**
+
+**F4.3 COMPLETA**: hardening + docs. **Cabeceras de seguridad** en toda respuesta (CSP anclada a
+`'self'` con hash del script inline calculado del index servido, anti-clickjacking, nosniff, referer,
+COOP/CORP, HSTS en prod, sin `X-Powered-By`); **mismo origen sin CORS**; **validación repasada** (Zod
+allow-list + RFC 7807, anti-SSRF, cookie httpOnly/SameSite/Secure, token confinado); **README de
+despliegue** ampliado (env, Docker, compose, TLS). Verificado con 8 tests nuevos del BFF + arranque
+real de la imagen (cabeceras presentes con el hash exacto) + las 14 e2e full-stack en verde con la
+CSP activa. Repo verde: typecheck/lint/build/test (contract 1 + BFF **59** + web 19) + e2e shell/viz
+(7) + full-stack (14).
+
+**★ FASE 4 (Historia + empaquetado) COMPLETA** (F4.1–F4.3). Historia (Prometheus) con series
+temporales y degradación limpia; imagen Docker multi-stage no-root con HEALTHCHECK + docker-compose de
+ejemplo; hardening (cabeceras/CSP, mismo origen, validación) + README de despliegue. **NexusMQ Console
+v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/build/test (contract 1 + BFF
+59 + web 19) + e2e shell/viz (7) + e2e full-stack (14).
 
 ---
 
@@ -545,8 +559,26 @@ ejecutar `docker compose up` en una máquina con Docker (README de despliegue en
   **Limitación documentada:** falta ejecutar `docker build`/`docker compose up` en una máquina con
   Docker (el README de despliegue lo cubre en F4.3); la imagen del broker es un placeholder (se
   entrega aparte).
-- [ ] **F4.3 Hardening + docs** — cabeceras de seguridad, CORS mismo-origen, validación repasada;
+- [x] **F4.3 Hardening + docs** — cabeceras de seguridad, CORS mismo-origen, validación repasada;
   `README` de despliegue. *AC:* revisión de seguridad de la §8 del plan pasada; README completo.
+  ✔ **Cabeceras de seguridad** (`security/security-headers.ts`, aplicadas en `main.ts` antes del
+  servido estático y del router, cubren SPA + API): **CSP** anclada a `'self'` que habilita el único
+  script inline del index por su **hash sha256 calculado en arranque del index realmente servido**
+  (sin `'unsafe-inline'` en scripts; `style-src` sí lo admite por los estilos por atributo de las
+  libs de viz), `frame-ancestors 'none'`/`X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy:
+  no-referrer`, COOP/CORP `same-origin`, `Origin-Agent-Cluster`, `X-DNS-Prefetch-Control: off`,
+  **HSTS** en prod, y sin `X-Powered-By`. **CORS mismo-origen**: el BFF **no** habilita CORS (revisado);
+  la SPA y la API comparten origen. **Validación repasada** (Zod, allow-list, RFC 7807): paginación,
+  nombres, `PATCH` `.strict()`, params de `query_range`, token de login `.strict()`; anti-SSRF (broker
+  y Prometheus confinados por entorno); cookie httpOnly `SameSite=Lax`/`Secure` en prod; token del
+  broker nunca al navegador. **README de despliegue** ampliado (tabla de variables de entorno, imagen
+  Docker, docker-compose, TLS/proxy inverso, healthchecks) y §Seguridad reescrita. **Verificado:**
+  8 tests nuevos del BFF (5 unit del hash/CSP + 3 e2e supertest que comprueban las cabeceras en
+  respuestas reales, hash inline y ausencia de `X-Powered-By`); **arranque real** de la imagen
+  construida devuelve todas las cabeceras (CSP con el hash exacto del index, HSTS en prod); las **14
+  e2e full-stack siguen en verde con la CSP activa** (módulo, SSE, gráficas y topología 3D funcionan).
+  Repo verde: typecheck/lint/build/test (contract 1 + BFF **59** + web 19) + e2e shell/viz (7) +
+  full-stack (14).
 
 ## Notas / riesgos
 
