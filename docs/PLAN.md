@@ -198,7 +198,15 @@ Nuevas primitivas: `Dialog`, `Field`/`Input`, variante `danger`, helper `unwrapV
 navegador full-stack**: crear → describir → **PATCH retentionMs ⇒ vigente «1 h» que persiste tras
 recargar** → borrar. El doble del broker pasó a **stateful**. Repo verde: typecheck/lint/build/test
 (contract 1 + BFF 51 + web 10) + e2e shell/viz (7) + e2e full-stack (**8**).
-**Siguiente: F3.3 — Grupos (listar + describir: miembros, offsets, lag).**
+
+**★ FASE 3 (Vistas v1) COMPLETA** (F3.1–F3.6). Dashboard vivo (SSE + derivación de throughput/latencias
++ estado Raft), Topics (CRUD + PATCH de retención con efecto real), Grupos (describe con lag por
+partición), Particiones (lag de réplica cruzando describe + Raft), Cluster/Raft con **topología 3D**
+(react-three-fiber) que responde al líder, y Ajustes (tema + login/logout desde la UI + conexión).
+Todo tipado del contrato, verificado en navegador. El doble del broker de los e2e es stateful y sirve
+`topics`/`groups`/`cluster`/`metrics`/`stream`. Repo verde en todo el monorepo:
+typecheck/lint/build/test (contract 1 + BFF 51 + web 10) + e2e shell/viz (**7**) + e2e full-stack
+(**12**). **Siguiente: Fase 4 — Historia (Prometheus) + Docker + hardening.**
 
 ---
 
@@ -461,8 +469,19 @@ recargar** → borrar. El doble del broker pasó a **stateful**. Repo verde: typ
   chunk). **Verificado en navegador full-stack** (`e2e-fullstack/cluster.spec.ts`): nodos + Raft real,
   la topología 3D (WebGL) se dibuja, y al seleccionar `orders.events-p2` el líder pasa de Nodo 1 a
   Nodo 2. Capturas revisadas (p0 con aristas líder→seguidores; p2 con líder Nodo 2).
-- [ ] **F3.6 Settings + Auth UI** — perfiles de conexión (host/puerto admin), tema, gestión de
+- [x] **F3.6 Settings + Auth UI** — perfiles de conexión (host/puerto admin), tema, gestión de
   sesión. *AC:* cambiar de perfil reconfigura el destino del BFF; login/logout desde la UI.
+  ✔ Página de Ajustes con tres tarjetas: **Apariencia** (tema sistema/claro/oscuro, persistido),
+  **Sesión** (estado de acceso real + **login/logout desde la UI**; el token va al BFF y se confina en
+  servidor) y **Conexión/observabilidad** (destino del broker confinado en el servidor; disponibilidad
+  de Historia/Prometheus vía `GET /api/history/status`). **Verificado en navegador full-stack**
+  (`e2e-fullstack/settings.spec.ts`): cambiar a oscuro aplica `data-theme=dark`; «Sesión activa» +
+  **cerrar sesión desde Ajustes** ⇒ el guard vuelve al login; conexión muestra broker confinado y
+  Prometheus «No configurada». Captura revisada. **Desviación honesta del AC:** «cambiar de perfil
+  reconfigura el destino del BFF» **no** se expone al navegador a propósito —el broker se fija en el
+  despliegue (env confinado del BFF)—; reconvertir el destino desde el cliente convertiría al BFF en
+  un *proxy abierto* (SSRF) y rompería el confinamiento del token. Los perfiles multi-broker son
+  materia de servidor (v2); la UI lo documenta.
 
 ### Fase 4 — Historia + empaquetado
 - [ ] **F4.1 Historia (Prometheus)** — vistas de series temporales con `query_range` y gráficas
