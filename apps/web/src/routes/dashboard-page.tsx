@@ -54,7 +54,7 @@ export function DashboardPage(): ReactNode {
         <LiveBadge status={metrics.status} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatTile
           label="Produce"
           value={compact(current?.produceReqPerSec ?? null, 1)}
@@ -96,6 +96,13 @@ export function DashboardPage(): ReactNode {
           testId="kpi-errors"
         />
         <StatTile
+          label="Conexiones activas"
+          value={integer(metrics.connections)}
+          unit="conexiones"
+          sub={<PlanesSub byPlane={metrics.connectionsByPlane} />}
+          testId="kpi-connections"
+        />
+        <StatTile
           label="Clúster"
           value={health ? integer(health.nodeCount) : '—'}
           unit="nodos"
@@ -121,6 +128,18 @@ export function DashboardPage(): ReactNode {
 
       <ClusterRaftPanel query={clusterQuery} />
     </div>
+  );
+}
+
+/** Desglose de conexiones por `plane` («native 128 · kafka 41 · admin 7»), o «—». */
+function PlanesSub({ byPlane }: { readonly byPlane: ReadonlyMap<string, number> | null }): ReactNode {
+  if (byPlane === null || byPlane.size === 0) {
+    return <span>por plano: —</span>;
+  }
+  return (
+    <span>
+      {[...byPlane.entries()].map(([plane, n]) => `${plane} ${integer(n)}`).join(' · ')}
+    </span>
   );
 }
 

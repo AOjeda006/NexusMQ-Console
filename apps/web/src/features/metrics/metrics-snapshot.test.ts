@@ -5,6 +5,7 @@ import {
   findCounter,
   findGauge,
   findHistogram,
+  groupGaugeByLabel,
   histogramQuantile,
   METRIC,
   type MetricsSnapshot,
@@ -104,6 +105,23 @@ describe('findCounter / findGauge con filtrado por label', () => {
     };
     expect(findCounter(snap, 'n')).toBeNull();
     expect(findGauge(snap, 'n')).toBe(5);
+  });
+});
+
+describe('groupGaugeByLabel (conexiones por plane)', () => {
+  it('agrupa y suma el gauge por el valor de la etiqueta, ordenado por clave', () => {
+    const byPlane = groupGaugeByLabel(snapshotWith(), METRIC.connections, 'plane');
+    expect(byPlane).not.toBeNull();
+    expect([...(byPlane ?? [])]).toEqual([
+      ['admin', 10],
+      ['kafka', 30],
+      ['native', 80],
+    ]);
+  });
+
+  it('degrada a null si el broker no emite el gauge (aún no existe)', () => {
+    const empty: MetricsSnapshot = { metrics: [] };
+    expect(groupGaugeByLabel(empty, METRIC.connections, 'plane')).toBeNull();
   });
 });
 

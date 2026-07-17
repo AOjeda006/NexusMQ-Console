@@ -632,9 +632,11 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
   dashboard muestra **datos reales sin «—»** (Produce 12,1 k req/s · 253 k msg/s · 13 MB/s; Fetch 5,9 k
   req/s; p99 50 ms · p50 3,65 · p999 250 ms; error 0/s con check verde). typecheck/lint verdes; web unit
   22/22 (filtrado por label + agregación de histograma cubiertos); 14/14 e2e full-stack.
-- [ ] **F5.3 Tile «Conexiones activas»** — mapear a gauge `nexus_broker_connections_active` (sumado o
-  desglosado por `plane`). Degrada «—» hasta que el broker lo emita. *AC:* muestra conexiones reales
-  cuando el broker las exponga; «—» honesto entretanto.
+- [x] **F5.3 Tile «Conexiones activas»** — nuevo helper puro `groupGaugeByLabel` (suma un gauge por el
+  valor de una etiqueta, o `null` si no hay serie) + tile dedicado que muestra el **total sumado** y el
+  **desglose por `plane`** (`native/kafka/admin`); degrada «—» honesto si el broker no lo emite.
+  ✔ Verificado en navegador (206 conexiones · admin 8 · kafka 49 · native 149); web unit 24/24 (grupo por
+  plane + degradación null); e2e dashboard verde. Grid del dashboard reorganizado a 6 tiles (2×3).
 - [ ] **F5.4 Sesiones del BFF: expira y purga** — hoy `createdAtMs` se guarda pero no se lee y el Map
   crece sin cota. Validar TTL (config, p. ej. 8 h) en `resolveToken` + barrido periódico. *AC:* sesión
   caducada → 401 y sale del Map (test).

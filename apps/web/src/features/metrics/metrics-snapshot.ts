@@ -109,6 +109,31 @@ function sumValues(
 }
 
 /**
+ * Agrupa las series `gauge` con ese nombre por el valor de una etiqueta (p. ej.
+ * `connections_active` por `plane`), sumando el `value` dentro de cada grupo.
+ * Devuelve un mapa `{valor de la etiqueta → suma}` ordenado por clave, o `null`
+ * si no hay ninguna serie (degradación honesta). Las series sin esa etiqueta se
+ * agrupan bajo la cadena vacía.
+ */
+export function groupGaugeByLabel(
+  snapshot: MetricsSnapshot,
+  name: string,
+  labelKey: string,
+): ReadonlyMap<string, number> | null {
+  const byLabel = new Map<string, number>();
+  for (const sample of snapshot.metrics) {
+    if (sample.name === name && sample.type === 'gauge' && typeof sample.value === 'number') {
+      const key = sample.labels[labelKey] ?? '';
+      byLabel.set(key, (byLabel.get(key) ?? 0) + sample.value);
+    }
+  }
+  if (byLabel.size === 0) {
+    return null;
+  }
+  return new Map([...byLabel.entries()].sort(([a], [b]) => a.localeCompare(b)));
+}
+
+/**
  * Histograma **agregado** de todas las series con ese nombre que casen el selector
  * (p. ej. `produce` sobre los protocolos `native`+`kafka`), normalizado a
  * {@link HistogramView} con los cubos sumados por `le` y ordenados ascendente. Es

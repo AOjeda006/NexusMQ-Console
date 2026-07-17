@@ -8,6 +8,7 @@ import {
   findCounter,
   findGauge,
   findHistogram,
+  groupGaugeByLabel,
   histogramQuantile,
   METRIC,
   type MetricsSnapshot,
@@ -49,6 +50,8 @@ export interface LiveMetricsState {
   readonly history: readonly MetricsSample[];
   /** Conexiones activas (gauge, sumado por plane), o `null` si el broker no la expone. */
   readonly connections: number | null;
+  /** Conexiones activas desglosadas por `plane` (native/kafka/admin…), o `null`. */
+  readonly connectionsByPlane: ReadonlyMap<string, number> | null;
 }
 
 /** Puntos que retiene la ventana deslizante (a la cadencia del SSE, ~1 min). */
@@ -165,6 +168,9 @@ export function useLiveMetrics(): LiveMetricsState {
 
   const [history, setHistory] = useState<readonly MetricsSample[]>([]);
   const [connections, setConnections] = useState<number | null>(null);
+  const [connectionsByPlane, setConnectionsByPlane] = useState<ReadonlyMap<string, number> | null>(
+    null,
+  );
   const prevRef = useRef<PrevFrame | null>(null);
 
   const snapshot = live.data;
@@ -178,6 +184,7 @@ export function useLiveMetrics(): LiveMetricsState {
     prevRef.current = { snapshot, tMs };
     // Gauge sumado por plane (native+kafka+admin); «—» hasta que el broker lo emita.
     setConnections(findGauge(snapshot, METRIC.connections));
+    setConnectionsByPlane(groupGaugeByLabel(snapshot, METRIC.connections, 'plane'));
     setHistory((prev) => {
       const next = [...prev, sample];
       return next.length > MAX_POINTS ? next.slice(next.length - MAX_POINTS) : next;
@@ -194,5 +201,6 @@ export function useLiveMetrics(): LiveMetricsState {
     current: history.length > 0 ? history[history.length - 1] : null,
     history,
     connections,
+    connectionsByPlane,
   };
 }

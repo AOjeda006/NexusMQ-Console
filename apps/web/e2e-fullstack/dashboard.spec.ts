@@ -49,6 +49,10 @@ test('el Dashboard muestra métricas en vivo, gráficas y estado Raft del broker
     .poll(async () => (await produceKpi.innerText()).includes('—'), { timeout: 2000 })
     .toBe(false);
   await expect(page.getByTestId('kpi-p99')).toContainText('ms');
+  // Conexiones activas (gauge por plane) con desglose real (F5.3).
+  const connectionsKpi = page.getByTestId('kpi-connections');
+  await expect(connectionsKpi).toContainText('conexiones');
+  await expect(connectionsKpi).toContainText('native');
   const clusterKpi = page.getByTestId('kpi-cluster');
   await expect(clusterKpi).toContainText('3');
   await expect(clusterKpi).toContainText('Saludable');
