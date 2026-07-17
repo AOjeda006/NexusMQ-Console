@@ -109,9 +109,34 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
   **zod** *fail-fast* (F1.2). Sesiones **en memoria** (una sola instancia; basta para v1). Tests e2e
   con **Vitest + supertest**, usando **`unplugin-swc`** para la metadata de decoradores.
 
+- **2026-07-17 — Nombres de métrica REALES del broker (F5, reversible en cuanto al mapeo, no en
+  cuanto a la fuente).** La fuente de verdad de los **nombres** es `docs/metrics.md` del broker (repo
+  hermano `../NexusMQ`), no el OpenAPI (que solo fija la **forma** del snapshot, lista abierta de
+  `MetricSample`). El broker **no** emite `nexusmq_*`; emite el plano de datos `nexus_broker_*` con
+  labels `{api: produce|fetch, protocol: native|kafka}` (`requests_total`, `request_errors_total`,
+  `request_bytes_total`, `messages_total`, `request_duration_seconds`) y `nexus_broker_connections_active{plane}`.
+  La consola codifica **contra estos nombres** y **filtra por label**; degrada con honestidad («—»)
+  las que aún no emita el broker (`messages_total`, `connections_active`). Sustituye la decisión del
+  2026-07-16 sobre nombres del snapshot (F3.1), que asumía `nexusmq_*` ficticios (por eso los e2e
+  pasaban sobre un contrato equivocado: los dobles mentían).
+- **2026-07-17 — F5.7 Gate de login del BFF = `CONSOLE_REQUIRE_LOGIN`, default `true` SIEMPRE**
+  (todos los entornos, no solo prod). (esencial — decidido en la puerta de clarificación). Con el flag
+  activo, el `SessionAuthGuard` exige **sesión válida siempre** en rutas `@Protected`, aunque el
+  broker esté en **modo abierto** (deja de espejar el modo del broker). Además `GET
+  /api/v1/metrics/snapshot` pasa a `@Protected` (antes era alcanzable sin login, incluso en modo
+  secreto — fuga). El **mecanismo de login no cambia**: el operador sigue pegando su token del broker,
+  que el BFF valida contra el broker y confina en servidor; no se introduce credencial de consola
+  nueva. `CONSOLE_REQUIRE_LOGIN=false` restaura el comportamiento anterior (espejo del modo del broker).
+- **2026-07-17 — F5.6 `query_range` = allow-list de PromQL construida en SERVIDOR** (esencial —
+  decidido en la puerta de clarificación). El endpoint deja de ser passthrough de PromQL arbitraria:
+  el cliente envía solo un **id de métrica** del catálogo (throughput, latencias p50/p99/p999, tasa de
+  error, bytes/s, mensajes/s) + rango/step validados, y el **BFF construye la PromQL** contra los
+  nombres reales del broker. Query fuera del allow-list → 400. El endpoint pasa a `@Protected`. Evita
+  que el BFF sea un motor PromQL abierto (superficie SSRF/DoS contra Prometheus).
+
 ## Decisiones abiertas (resolver en la puerta de clarificación con el usuario)
 
-- _(ninguna pendiente — todas las abiertas se resolvieron el 2026-07-16; ver arriba)_
+- _(ninguna pendiente — todas las abiertas se resolvieron el 2026-07-16/17; ver arriba)_
 
 ## Estado actual
 
@@ -580,8 +605,57 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
   Repo verde: typecheck/lint/build/test (contract 1 + BFF **59** + web 19) + e2e shell/viz (7) +
   full-stack (14).
 
+### Fase 5 — Reconciliación con el broker real
+> Corrige fallos detectados al probar la integración real contra el broker (v1 ya entregada). Causa
+> raíz: el broker **no** emite `nexusmq_*`; emite `nexus_broker_*` con labels `{api,protocol}`, y los
+> dobles de test emitían nombres ficticios (por eso los e2e pasaban sobre un contrato equivocado).
+> Fuente de verdad de nombres: `docs/metrics.md` del broker (`../NexusMQ`). Un ítem a la vez, TDD.
+
+- [ ] **F5.1 Arreglar `pnpm dev`** — turbo 2.x usa env-mode strict; la tarea `dev` no declara env y
+  filtra `BROKER_ADMIN_URL`/`SESSION_SECRET`… ⇒ el BFF aborta con `ConfigValidationError`. Añadir
+  `passThroughEnv`/`globalPassThroughEnv` (BROKER_ADMIN_URL, SESSION_SECRET, PROMETHEUS_URL, PORT,
+  NODE_ENV, WEB_DIST_PATH, BROKER_TLS_REJECT_UNAUTHORIZED, NODE_EXTRA_CA_CERTS, CONSOLE_REQUIRE_LOGIN).
+  *AC:* el flujo del README (`export … ; pnpm dev`) arranca el BFF; README alineado.
+- [ ] **F5.2 Remapear Dashboard + Historia a métricas reales, con filtrado por label** — hoy
+  `sumValues`/`findHistogram` ignoran los labels y suman/eligen a ciegas. Generalizar para aceptar un
+  selector de labels (`{api:'produce'}`). Mapeo: throughput = `nexus_broker_requests_total` (delta por
+  poll agrupado por `api`); latencias = histograma `nexus_broker_request_duration_seconds` (api=produce);
+  tasa de error = `nexus_broker_request_errors_total`; bytes/s = `nexus_broker_request_bytes_total`;
+  mensajes/s = `nexus_broker_messages_total` (degrada). PromQL Historia con `sum by (api) (rate(...))`
+  y `histogram_quantile(q, sum(rate(..._bucket[w])) by (le))`. *AC:* el dashboard deja de mostrar «—»
+  contra un broker real (verificado en navegador).
+- [ ] **F5.3 Tile «Conexiones activas»** — mapear a gauge `nexus_broker_connections_active` (sumado o
+  desglosado por `plane`). Degrada «—» hasta que el broker lo emita. *AC:* muestra conexiones reales
+  cuando el broker las exponga; «—» honesto entretanto.
+- [ ] **F5.4 Sesiones del BFF: expira y purga** — hoy `createdAtMs` se guarda pero no se lee y el Map
+  crece sin cota. Validar TTL (config, p. ej. 8 h) en `resolveToken` + barrido periódico. *AC:* sesión
+  caducada → 401 y sale del Map (test).
+- [ ] **F5.5 SSE con backpressure acotado** — respetar el retorno de `response.write()` (pausar el
+  reader hasta `drain`) o descartar frames intermedios quedándose con el último. *AC:* con un cliente
+  lento la memoria por conexión no crece sin límite (test determinista).
+- [ ] **F5.6 `query_range` con allow-list en servidor** — dejar de ser passthrough de PromQL; exigir
+  sesión (`@Protected`) y construir la PromQL en servidor desde un allow-list (id de métrica + rango/
+  step validados). *AC:* query fuera del allow-list → 400; con sesión + métrica válida → ok (tests).
+- [ ] **F5.7 Gate de login del BFF** — con `CONSOLE_REQUIRE_LOGIN=true` (default true), el guard exige
+  sesión válida SIEMPRE (aunque el broker esté abierto); proteger `GET /api/v1/metrics/snapshot`.
+  *AC:* tests de ambos modos (flag on/off, broker abierto/secreto).
+- [ ] **F5.8 Robustez** — (a) `isBrokerAuthRequired` con TTL (re-detecta si el broker reinicia en otro
+  modo); (b) alinear **todos** los dobles (broker-double.ts, prometheus-double.ts, fake-broker.mjs,
+  metrics-snapshot.test.ts, history-range.test.ts) con el contrato REAL (nombres/labels/formas del
+  broker). *AC:* los dobles emiten los nombres reales; los tests reflejan el contrato, no la
+  implementación.
+- [ ] **F5.9 Anclar nombres al catálogo del broker** — comentario/enlace a `docs/metrics.md` en
+  `metrics-snapshot.ts` y `history-range.ts` para que cualquier cambio futuro del broker se refleje
+  aquí (`sync:openapi` + revisar catálogo). *AC:* enlaces presentes.
+
 ## Notas / riesgos
 
+- **Raft-3D (F3.5) y Grupos (F3.3) vacíos NO son bugs de la consola.** El broker single-node RF=1 no
+  tiene réplicas Raft (las familias `nexus_raft_*` solo existen con `replication_factor ≥ 2`; en
+  single-node el estado se ve por `GET /api/v1/cluster`) y no hay consumidores. Ambas vistas deben
+  **degradar con honestidad** (mensaje claro de "sin datos", no error). Se poblarán solas cuando el
+  broker mejore (estado Raft en single-node / consumidores reales). Dependencia del broker, no trabajo
+  de la consola.
 - **SSE, no WebSocket:** el broker expone SSE (`text/event-stream`). `herramientas/tiempo-real.md`
   habla de WebSockets (SignalR/Socket.IO); tómalo como referencia de patrones de auth/realtime, pero
   el mecanismo aquí es **EventSource** (una vía, server→cliente). Léelo junto a `fundamentos/redes/`.
