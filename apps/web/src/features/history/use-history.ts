@@ -9,10 +9,10 @@ import {
   type SeriesPoint,
 } from './history-range';
 
-/** Una serie a consultar: un id estable y su PromQL. */
+/** Una serie a consultar: un id estable y el id de métrica de la allow-list del BFF. */
 export interface RangeSpec {
   readonly id: string;
-  readonly query: string;
+  readonly metric: string;
 }
 
 interface RangeSeries {
@@ -21,15 +21,16 @@ interface RangeSeries {
 }
 
 async function fetchRangeSeries(
-  query: string,
+  metric: string,
   window: HistoryWindow,
   signal: AbortSignal,
 ): Promise<RangeSeries> {
   const params = new URLSearchParams({
-    query,
+    metric,
     start: String(window.startS),
     end: String(window.endS),
     step: window.step,
+    window: window.window,
   });
   const response = await fetch(`/api/history/query_range?${params.toString()}`, {
     headers: { accept: 'application/json' },
@@ -70,9 +71,9 @@ export function useHistorySeries(
 ): HistorySeries {
   const results = useQueries({
     queries: specs.map((spec) => ({
-      queryKey: ['history-range', spec.id, spec.query, window.startS, window.endS, window.step],
+      queryKey: ['history-range', spec.id, spec.metric, window.startS, window.endS, window.step],
       queryFn: ({ signal }: { readonly signal: AbortSignal }): Promise<RangeSeries> =>
-        fetchRangeSeries(spec.query, window, signal),
+        fetchRangeSeries(spec.metric, window, signal),
       enabled: options.enabled,
       staleTime: 15_000,
     })),

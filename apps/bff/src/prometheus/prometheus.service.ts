@@ -2,6 +2,7 @@ import { BadGatewayException, BadRequestException, Injectable, Logger } from '@n
 import { fetch } from 'undici';
 
 import { ConfigService } from '../config/config.service';
+import { buildHistoryQuery } from './history-metrics';
 import type { QueryRangeParams } from './prometheus.schemas';
 
 /**
@@ -52,8 +53,11 @@ export class PrometheusService {
       return { available: false, reason: 'Prometheus no está configurado en el BFF.' };
     }
 
+    // La PromQL se **construye en servidor** desde el id de la allow-list; nunca
+    // llega cruda del cliente (F5.6).
+    const query = buildHistoryQuery(params.metric, params.window);
     const url = new URL(`${base.replace(/\/+$/, '')}/api/v1/query_range`);
-    url.searchParams.set('query', params.query);
+    url.searchParams.set('query', query);
     url.searchParams.set('start', params.start);
     url.searchParams.set('end', params.end);
     url.searchParams.set('step', params.step);

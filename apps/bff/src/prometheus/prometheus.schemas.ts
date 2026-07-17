@@ -1,16 +1,33 @@
 import { z } from 'zod';
 
+import { HISTORY_METRIC_IDS } from './history-metrics';
+
+/** Duración Prometheus estricta (p. ej. `15s`, `2m`, `1h`); nunca PromQL. */
+const promDuration = z
+  .string()
+  .trim()
+  .regex(/^[1-9]\d{0,4}(ms|s|m|h)$/, 'debe ser una duración Prometheus (p. ej. 15s, 2m, 1h).');
+
+/** Timestamp Unix en segundos (entero). */
+const unixSeconds = z
+  .string()
+  .trim()
+  .regex(/^\d{1,15}$/, 'debe ser un timestamp Unix en segundos.');
+
 /**
- * Parámetros de un `query_range` de Prometheus. `start`/`end` admiten RFC 3339 o
- * timestamp Unix, y `step` una duración (`15s`) o segundos; se validan como
- * cadenas no vacías y Prometheus decide su semántica exacta (un valor inválido
- * vuelve como 400 propagado).
+ * Parámetros de `query_range`: **no** aceptan PromQL cruda. El cliente elige un
+ * `metric` de la **allow-list** (el BFF construye la PromQL en servidor) y aporta
+ * el rango/step/ventana **validados** (`start`/`end` en segundos Unix; `step`/
+ * `window` como duraciones Prometheus estrictas). Ver `history-metrics.ts`.
  */
 export const queryRangeSchema = z.object({
-  query: z.string().trim().min(1, 'query (PromQL) es obligatorio.'),
-  start: z.string().trim().min(1, 'start es obligatorio.'),
-  end: z.string().trim().min(1, 'end es obligatorio.'),
-  step: z.string().trim().min(1, 'step es obligatorio.'),
+  metric: z.enum(HISTORY_METRIC_IDS, {
+    errorMap: () => ({ message: 'métrica no permitida (fuera de la allow-list).' }),
+  }),
+  start: unixSeconds,
+  end: unixSeconds,
+  step: promDuration,
+  window: promDuration,
 });
 
 export type QueryRangeParams = z.infer<typeof queryRangeSchema>;

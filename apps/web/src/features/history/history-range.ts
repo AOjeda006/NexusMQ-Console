@@ -45,30 +45,18 @@ export function resolveWindow(preset: RangePreset, nowMs: number): HistoryWindow
 }
 
 /**
- * Métricas Prometheus **REALES** del broker que consumen las vistas de historia.
- * Fuente de verdad de los nombres: `docs/metrics.md` del broker (repo hermano
- * `../NexusMQ`). Las familias del plano de datos llevan `{api,protocol}`; la
- * historia consulta por `api` (produce/fetch) igual que el dashboard en vivo.
- *
- * @see ../../../../../NexusMQ/docs/metrics.md — catálogo de métricas del broker.
+ * Ids de métrica de historia (allow-list). El cliente **no** envía PromQL: elige
+ * un id de esta lista y el BFF construye la PromQL en servidor contra los nombres
+ * REALES del broker (`docs/metrics.md` de `../NexusMQ`). Debe casar con
+ * `apps/bff/src/prometheus/history-metrics.ts` (fuente de verdad del allow-list).
  */
-export const HISTORY_METRIC = {
-  requests: 'nexus_broker_requests_total',
-  requestDurationBucket: 'nexus_broker_request_duration_seconds_bucket',
+export const HISTORY_METRIC_ID = {
+  throughputProduce: 'throughput-produce',
+  throughputFetch: 'throughput-fetch',
+  latencyP50: 'latency-p50',
+  latencyP99: 'latency-p99',
+  latencyP999: 'latency-p999',
 } as const;
-
-/** PromQL de throughput (peticiones/s) filtrado por `api`, agregado y suavizado. */
-export function throughputQuery(api: string, window: string): string {
-  return `sum(rate(${HISTORY_METRIC.requests}{api="${api}"}[${window}]))`;
-}
-
-/**
- * PromQL de un cuantil de latencia (segundos) de `produce` sobre el histograma del
- * intervalo (`histogram_quantile` de los cubos por `le`).
- */
-export function latencyQuantileQuery(quantile: number, window: string): string {
-  return `histogram_quantile(${quantile}, sum(rate(${HISTORY_METRIC.requestDurationBucket}{api="produce"}[${window}])) by (le))`;
-}
 
 /** Una serie de la respuesta `matrix` de Prometheus. */
 export interface PromSeries {

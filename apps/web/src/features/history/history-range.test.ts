@@ -4,9 +4,7 @@ import {
   alignSeries,
   firstSeriesPoints,
   hasData,
-  latencyQuantileQuery,
   resolveWindow,
-  throughputQuery,
   type PromSeries,
   RANGE_PRESETS,
 } from './history-range';
@@ -20,23 +18,6 @@ describe('resolveWindow', () => {
     expect(window.startS).toBe(1_700_000_000 - 3600);
     expect(window.step).toBe(preset.step);
     expect(window.window).toBe(preset.window);
-  });
-});
-
-describe('constructores de PromQL (nombres reales del broker, filtrados por api)', () => {
-  it('throughput agrega y suaviza requests_total filtrado por api', () => {
-    expect(throughputQuery('produce', '2m')).toBe(
-      'sum(rate(nexus_broker_requests_total{api="produce"}[2m]))',
-    );
-    expect(throughputQuery('fetch', '2m')).toBe(
-      'sum(rate(nexus_broker_requests_total{api="fetch"}[2m]))',
-    );
-  });
-
-  it('cuantil de latencia usa histogram_quantile del bucket de produce agregado por le', () => {
-    expect(latencyQuantileQuery(0.99, '5m')).toBe(
-      'histogram_quantile(0.99, sum(rate(nexus_broker_request_duration_seconds_bucket{api="produce"}[5m])) by (le))',
-    );
   });
 });
 

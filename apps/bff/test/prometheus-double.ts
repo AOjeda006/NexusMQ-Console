@@ -32,7 +32,7 @@ function route(req: IncomingMessage, res: ServerResponse): void {
         resultType: 'matrix',
         result: [
           {
-            metric: { __name__: 'nexusmq_messages_in_total' },
+            metric: { __name__: 'nexus_broker_requests_total', api: 'produce' },
             values: [
               [1_700_000_000, '10'],
               [1_700_000_015, '25'],

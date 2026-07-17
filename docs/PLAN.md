@@ -651,9 +651,15 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
   lugar de escribir a ciegas. Sale limpio ante `abort` (cliente ido) sin colgarse. ✔ 6 tests
   deterministas (write true resuelve; write false se pausa hasta drain; abort no cuelga; **cliente lento
   ⇒ solo se lee 1 chunk, no crece sin límite**); los 3 e2e de stream siguen verdes. BFF 69/69.
-- [ ] **F5.6 `query_range` con allow-list en servidor** — dejar de ser passthrough de PromQL; exigir
-  sesión (`@Protected`) y construir la PromQL en servidor desde un allow-list (id de métrica + rango/
-  step validados). *AC:* query fuera del allow-list → 400; con sesión + métrica válida → ok (tests).
+- [x] **F5.6 `query_range` con allow-list en servidor** — deja de ser passthrough de PromQL. Nuevo
+  `prometheus/history-metrics.ts` (allow-list cerrada de ids + `buildHistoryQuery`, anclado a
+  `docs/metrics.md`); el esquema valida `metric` (enum), `start`/`end` (Unix s) y `step`/`window`
+  (duraciones Prometheus estrictas). El servicio **construye la PromQL en servidor** desde el id +
+  ventana; el endpoint es **`@Protected`** (exige sesión). El cliente (`use-history`/`history-page`)
+  envía el id de métrica, no PromQL. ✔ Tests: 4 unit del allow-list (PromQL exacta, ids permitidos);
+  e2e reescrito con dobles de broker+Prometheus: sin sesión→401, con sesión+métrica válida→series,
+  métrica fuera del allow-list→400, step no-duración→400, degradado→available:false, inaccesible→502.
+  BFF 75/75, web 22/22, typecheck/lint verdes; historia full-stack verde.
 - [ ] **F5.7 Gate de login del BFF** — con `CONSOLE_REQUIRE_LOGIN=true` (default true), el guard exige
   sesión válida SIEMPRE (aunque el broker esté abierto); proteger `GET /api/v1/metrics/snapshot`.
   *AC:* tests de ambos modos (flag on/off, broker abierto/secreto).

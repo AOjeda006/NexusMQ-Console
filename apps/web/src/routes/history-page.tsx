@@ -8,11 +8,10 @@ import { HistoryChart } from '@/features/history/history-chart';
 import {
   alignSeries,
   hasData,
-  latencyQuantileQuery,
+  HISTORY_METRIC_ID,
   RANGE_PRESETS,
   type RangePreset,
   resolveWindow,
-  throughputQuery,
 } from '@/features/history/history-range';
 import { RangeSelector } from '@/features/history/range-selector';
 import { type RangeSpec, useHistorySeries } from '@/features/history/use-history';
@@ -38,11 +37,11 @@ export function HistoryPage(): ReactNode {
 
   const window = resolveWindow(range.preset, range.nowMs);
   const specs: readonly RangeSpec[] = [
-    { id: 'produce', query: throughputQuery('produce', window.window) },
-    { id: 'fetch', query: throughputQuery('fetch', window.window) },
-    { id: 'p50', query: latencyQuantileQuery(0.5, window.window) },
-    { id: 'p99', query: latencyQuantileQuery(0.99, window.window) },
-    { id: 'p999', query: latencyQuantileQuery(0.999, window.window) },
+    { id: 'produce', metric: HISTORY_METRIC_ID.throughputProduce },
+    { id: 'fetch', metric: HISTORY_METRIC_ID.throughputFetch },
+    { id: 'p50', metric: HISTORY_METRIC_ID.latencyP50 },
+    { id: 'p99', metric: HISTORY_METRIC_ID.latencyP99 },
+    { id: 'p999', metric: HISTORY_METRIC_ID.latencyP999 },
   ];
 
   const available = status.data?.available === true;
