@@ -31,9 +31,9 @@ test('permite cambiar de tema, ver el estado de conexión y cerrar sesión desde
   const session = page.getByTestId('session-card');
   await expect(session).toContainText('Sesión activa');
 
-  // Conexión/observabilidad: broker confinado y Prometheus no configurada en el e2e.
+  // Conexión/observabilidad: broker confinado y Prometheus configurada en el e2e (F4.1).
   await expect(page.getByText('Confinado en el servidor (BFF)')).toBeVisible();
-  await expect(page.getByText('No configurada')).toBeVisible();
+  await expect(page.getByText('Disponible')).toBeVisible();
   await page.screenshot({ path: `${SHOTS_DIR}/f36-settings.png`, fullPage: true });
 
   // Logout desde la UI ⇒ el guard vuelve al login.

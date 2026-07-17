@@ -206,7 +206,17 @@ partición), Particiones (lag de réplica cruzando describe + Raft), Cluster/Raf
 Todo tipado del contrato, verificado en navegador. El doble del broker de los e2e es stateful y sirve
 `topics`/`groups`/`cluster`/`metrics`/`stream`. Repo verde en todo el monorepo:
 typecheck/lint/build/test (contract 1 + BFF 51 + web 10) + e2e shell/viz (**7**) + e2e full-stack
-(**12**). **Siguiente: Fase 4 — Historia (Prometheus) + Docker + hardening.**
+(**12**).
+
+**F4.1 COMPLETA**: vista de **Historia** (series temporales de Prometheus). Consulta el data source
+del BFF (`query_range`) con PromQL propia (throughput por `rate` de counters y latencias
+p50/p99/p999 por `histogram_quantile` del histograma) y las dibuja en dos **gráficas uPlot** (motor
+del dashboard, tokens dataviz) con **selector de ventana** (15 min/1 h/6 h/24 h). Modelo puro y
+testeado (ventana/PromQL/parseo/alineado, 9 tests). **Degradación limpia** con aviso honesto si no
+hay Prometheus. **Verificado en navegador full-stack** con un **doble de Prometheus** añadido al
+arnés e2e (BFF con `PROMETHEUS_URL`): gráficas con datos reales + modo degradado. Repo verde:
+typecheck/lint/build/test (contract 1 + BFF 51 + web **19**) + e2e shell/viz (7) + e2e full-stack
+(**14**). **Siguiente: F4.2 — Docker (multi-stage, no-root, HEALTHCHECK) + docker-compose.**
 
 ---
 
@@ -484,9 +494,25 @@ typecheck/lint/build/test (contract 1 + BFF 51 + web 10) + e2e shell/viz (**7**)
   materia de servidor (v2); la UI lo documenta.
 
 ### Fase 4 — Historia + empaquetado
-- [ ] **F4.1 Historia (Prometheus)** — vistas de series temporales con `query_range` y gráficas
+- [x] **F4.1 Historia (Prometheus)** — vistas de series temporales con `query_range` y gráficas
   propias; degradación limpia si no hay Prometheus. *AC:* percentiles en el tiempo con Prometheus;
   aviso claro sin él.
+  ✔ Vista de **Historia** que consulta el data source de Prometheus del BFF (`GET
+  /api/history/query_range`, F1.6) con **PromQL propia**: throughput `sum(rate(messages_in/out[w]))`
+  y latencias `histogram_quantile(0.5/0.99/0.999, sum(rate(produce_latency_seconds_bucket[w])) by
+  (le))`. Modelo **puro y testeado** (`features/history/history-range.ts` + **9 tests**: presets de
+  ventana, constructores PromQL, parseo de la `matrix`, alineado de series con huecos). Hook
+  `useHistorySeries` (TanStack `useQueries`, 5 series en paralelo con `start/end/step` compartidos y
+  `enabled` según disponibilidad) → dos **gráficas uPlot** (throughput con relleno + latencias
+  p50/p99/p999 en ms) reusando el motor del dashboard con tokens dataviz y color de paleta en orden
+  fijo. **Selector de ventana** (15 min/1 h/6 h/24 h + «Actualizar») como único filtro sobre las
+  gráficas. **Degradación limpia**: si el BFF señaliza Prometheus no configurado, se muestra un aviso
+  honesto (icono + texto + `PROMETHEUS_URL`) sin romper el resto de la consola. **Verificado en
+  navegador full-stack** (`e2e-fullstack/history.spec.ts`, con un **doble de Prometheus** que sirve
+  `query_range` con forma según la query): las dos gráficas se dibujan (canvas + leyenda con series),
+  cambiar de ventana re-consulta, y el modo degradado (forzando `status.available=false`) muestra el
+  aviso sin gráficas. Capturas revisadas. Repo verde: typecheck/lint/build/test (contract 1 + BFF 51
+  + web **19**) + e2e shell/viz (7) + e2e full-stack (**14**).
 - [ ] **F4.2 Docker** — Dockerfile multi-stage (build SPA + runtime BFF), usuario no-root,
   `HEALTHCHECK`; `docker-compose` de ejemplo (console + broker + prometheus). *AC:* `docker compose
   up` levanta la consola apuntando al broker.
