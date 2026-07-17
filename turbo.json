@@ -21,6 +21,7 @@
       "passThroughEnv": [
         "BROKER_ADMIN_URL",
         "SESSION_SECRET",
+        "SESSION_TTL_HOURS",
         "PROMETHEUS_URL",
         "PORT",
         "NODE_ENV",

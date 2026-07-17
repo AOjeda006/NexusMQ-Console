@@ -1,4 +1,11 @@
-import { BadGatewayException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 import { BrokerService } from '../broker/broker.service';
 import { ConfigService } from '../config/config.service';
@@ -23,6 +30,9 @@ export interface OperatorSession {
 /** Endpoint protegido barato que sirve para validar tokens y sondear el modo. */
 const PROBE_PATH = '/api/v1/topics';
 
+/** Cadencia máxima del barrido de sesiones caducadas (acotada por el propio TTL). */
+const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
+
 /**
  * Auth con **JWT confinado en servidor** (modelo "el operador pega su token").
  *
@@ -31,7 +41,7 @@ const PROBE_PATH = '/api/v1/topics';
  * almacén en memoria y solo se inyecta, server-side, en las peticiones proxied.
  */
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuthService.name);
 
   /** Almacén de sesiones en memoria (una sola instancia; suficiente para v1). */
@@ -40,14 +50,61 @@ export class AuthService {
   /** Cache del modo del broker: ¿exige auth? Se resuelve por sondeo (lazy). */
   private authRequired: boolean | undefined;
 
+  /** Temporizador del barrido periódico de sesiones caducadas. */
+  private sweepTimer: ReturnType<typeof setInterval> | undefined;
+
   constructor(
     private readonly broker: BrokerService,
     private readonly config: ConfigService,
   ) {}
 
+  /** Arranca el barrido periódico que purga las sesiones caducadas (TTL). */
+  onModuleInit(): void {
+    const interval = Math.min(this.config.sessionTtlMs, SWEEP_INTERVAL_MS);
+    this.sweepTimer = setInterval(() => this.purgeExpired(Date.now()), interval);
+    // No debe mantener vivo el proceso por sí solo.
+    this.sweepTimer.unref?.();
+  }
+
+  /** Detiene el barrido al apagar el módulo (evita fugas del temporizador). */
+  onModuleDestroy(): void {
+    if (this.sweepTimer !== undefined) {
+      clearInterval(this.sweepTimer);
+      this.sweepTimer = undefined;
+    }
+  }
+
   /** Nº de sesiones activas (útil para diagnóstico y pruebas de arranque). */
   get activeSessionCount(): number {
     return this.sessions.size;
+  }
+
+  /** TTL de sesión (ms), para alinear el `maxAge` de la cookie con la caducidad server-side. */
+  get sessionTtlMs(): number {
+    return this.config.sessionTtlMs;
+  }
+
+  /**
+   * Elimina las sesiones cuyo TTL ha vencido en `nowMs`. Devuelve cuántas purgó.
+   * Lo invoca el barrido periódico y también, de forma perezosa, `resolveToken`.
+   */
+  purgeExpired(nowMs: number): number {
+    let removed = 0;
+    for (const [id, session] of this.sessions) {
+      if (this.isExpired(session, nowMs)) {
+        this.sessions.delete(id);
+        removed += 1;
+      }
+    }
+    if (removed > 0) {
+      this.logger.log(`Purgadas ${removed} sesión(es) caducada(s).`);
+    }
+    return removed;
+  }
+
+  /** ¿La sesión superó su TTL (creada hace más de `sessionTtlMs`)? */
+  private isExpired(session: OperatorSession, nowMs: number): boolean {
+    return nowMs - session.createdAtMs >= this.config.sessionTtlMs;
   }
 
   /**
@@ -92,10 +149,27 @@ export class AuthService {
     }
   }
 
-  /** Token del broker de la sesión de la cookie, o `undefined` si no hay sesión válida. */
+  /**
+   * Token del broker de la sesión de la cookie, o `undefined` si no hay sesión
+   * válida. Aplica el TTL de forma **perezosa**: una sesión caducada se **borra**
+   * del almacén y se trata como inexistente (⇒ 401 aguas arriba), sin esperar al
+   * barrido periódico.
+   */
   resolveToken(cookieHeader: string | undefined): string | undefined {
     const id = this.sessionIdFrom(cookieHeader);
-    return id === undefined ? undefined : this.sessions.get(id)?.brokerToken;
+    if (id === undefined) {
+      return undefined;
+    }
+    const session = this.sessions.get(id);
+    if (session === undefined) {
+      return undefined;
+    }
+    if (this.isExpired(session, Date.now())) {
+      this.sessions.delete(id);
+      this.logger.log('Sesión de operador caducada (TTL); purgada.');
+      return undefined;
+    }
+    return session.brokerToken;
   }
 
   /** ¿Hay una sesión válida detrás de esta cookie? (para `GET /api/auth/session`). */

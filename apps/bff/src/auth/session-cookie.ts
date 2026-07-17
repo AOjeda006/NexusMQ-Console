@@ -5,8 +5,8 @@ import type { CookieOptions } from 'express';
 /** Nombre de la cookie de sesión httpOnly del BFF. */
 export const SESSION_COOKIE_NAME = 'nexusmq_session';
 
-/** Vida de la sesión: 8 h. Tras expirar, el operador vuelve a pegar su token. */
-const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+/** Vida por defecto de la sesión: 8 h (configurable vía `SESSION_TTL_HOURS`). */
+const DEFAULT_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
 
 /** Id de sesión opaco e imposible de adivinar (256 bits de aleatoriedad). */
 export function createSessionId(): string {
@@ -59,13 +59,16 @@ export function readSessionCookie(cookieHeader: string | undefined): string | un
   return undefined;
 }
 
-/** Opciones de la cookie de sesión: httpOnly, `SameSite=Lax` y `Secure` en prod. */
-export function sessionCookieOptions(): CookieOptions {
+/**
+ * Opciones de la cookie de sesión: httpOnly, `SameSite=Lax` y `Secure` en prod.
+ * `maxAgeMs` alinea la caducidad del navegador con el TTL server-side (F5.4).
+ */
+export function sessionCookieOptions(maxAgeMs: number = DEFAULT_SESSION_MAX_AGE_MS): CookieOptions {
   return {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env['NODE_ENV'] === 'production',
     path: '/',
-    maxAge: SESSION_MAX_AGE_MS,
+    maxAge: maxAgeMs,
   };
 }

@@ -637,9 +637,13 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
   **desglose por `plane`** (`native/kafka/admin`); degrada «—» honesto si el broker no lo emite.
   ✔ Verificado en navegador (206 conexiones · admin 8 · kafka 49 · native 149); web unit 24/24 (grupo por
   plane + degradación null); e2e dashboard verde. Grid del dashboard reorganizado a 6 tiles (2×3).
-- [ ] **F5.4 Sesiones del BFF: expira y purga** — hoy `createdAtMs` se guarda pero no se lee y el Map
-  crece sin cota. Validar TTL (config, p. ej. 8 h) en `resolveToken` + barrido periódico. *AC:* sesión
-  caducada → 401 y sale del Map (test).
+- [x] **F5.4 Sesiones del BFF: expira y purga** — `createdAtMs` ya se valida. TTL configurable
+  (`SESSION_TTL_HOURS`, default 8 h → `sessionTtlMs`): `resolveToken`/`isAuthenticated` aplican
+  expiración **perezosa** (caducada → borra del Map → 401) y un **barrido periódico** (`onModuleInit`,
+  cadencia `min(TTL, 10 min)`, `unref`) purga las vencidas; `onModuleDestroy` lo detiene. El `maxAge` de
+  la cookie se alinea con el TTL. ✔ 4 tests unitarios (fresca resuelve; vencida da 401 y sale del Map;
+  `purgeExpired` cuenta; el barrido purga sin dejar crecer el Map). BFF 63/63, typecheck/lint verdes.
+  Documentado en README + `.env.example`.
 - [ ] **F5.5 SSE con backpressure acotado** — respetar el retorno de `response.write()` (pausar el
   reader hasta `drain`) o descartar frames intermedios quedándose con el último. *AC:* con un cliente
   lento la memoria por conexión no crece sin límite (test determinista).

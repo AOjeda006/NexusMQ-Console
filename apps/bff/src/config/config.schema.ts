@@ -25,6 +25,9 @@ const envSchema = z.object({
     .string({ required_error: 'requerido: secreto para firmar la sesión' })
     .min(32, 'debe tener al menos 32 caracteres'),
 
+  /** TTL de una sesión de operador, en horas; caducada, da 401 y se purga. Por defecto 8 h. */
+  SESSION_TTL_HOURS: z.coerce.number().positive().max(720).default(8),
+
   /** Ruta a un bundle de CAs extra (Node lo lee de forma nativa). Opcional. */
   NODE_EXTRA_CA_CERTS: z.string().min(1).optional(),
 
@@ -45,6 +48,7 @@ export interface BffConfig {
   readonly brokerAdminUrl: string;
   readonly prometheusUrl: string | undefined;
   readonly sessionSecret: string;
+  readonly sessionTtlMs: number;
   readonly nodeExtraCaCerts: string | undefined;
   readonly brokerTlsRejectUnauthorized: boolean;
   readonly webDistPath: string | undefined;
@@ -83,6 +87,7 @@ export function validateEnv(env: NodeJS.ProcessEnv): BffConfig {
     brokerAdminUrl: e.BROKER_ADMIN_URL,
     prometheusUrl: e.PROMETHEUS_URL,
     sessionSecret: e.SESSION_SECRET,
+    sessionTtlMs: e.SESSION_TTL_HOURS * 3_600_000,
     nodeExtraCaCerts: e.NODE_EXTRA_CA_CERTS,
     brokerTlsRejectUnauthorized: e.BROKER_TLS_REJECT_UNAUTHORIZED,
     webDistPath: e.WEB_DIST_PATH,

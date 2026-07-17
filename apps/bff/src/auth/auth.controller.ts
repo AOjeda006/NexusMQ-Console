@@ -26,7 +26,7 @@ export class AuthController {
     @Res() res: Response,
   ): Promise<void> {
     const cookie = await this.auth.login(body.token);
-    res.cookie(SESSION_COOKIE_NAME, cookie, sessionCookieOptions());
+    res.cookie(SESSION_COOKIE_NAME, cookie, sessionCookieOptions(this.auth.sessionTtlMs));
     res.status(200).json({ authenticated: true } satisfies SessionStatus);
   }
 

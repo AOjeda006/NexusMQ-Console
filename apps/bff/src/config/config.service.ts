@@ -24,6 +24,9 @@ export class ConfigService {
   /** Secreto para firmar la cookie de sesión httpOnly del BFF. */
   readonly sessionSecret: string;
 
+  /** TTL de una sesión de operador en milisegundos (caduca y se purga en servidor). */
+  readonly sessionTtlMs: number;
+
   /** ¿Validar el certificado TLS del broker al hacer de proxy? */
   readonly brokerTlsRejectUnauthorized: boolean;
 
@@ -37,6 +40,7 @@ export class ConfigService {
     this.brokerAdminUrl = config.brokerAdminUrl;
     this.prometheusUrl = config.prometheusUrl;
     this.sessionSecret = config.sessionSecret;
+    this.sessionTtlMs = config.sessionTtlMs;
     this.brokerTlsRejectUnauthorized = config.brokerTlsRejectUnauthorized;
     this.webDistPath = config.webDistPath;
   }
