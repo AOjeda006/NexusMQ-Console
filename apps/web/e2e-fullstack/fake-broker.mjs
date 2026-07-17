@@ -227,6 +227,64 @@ function clusterInfo() {
   };
 }
 
+// --- Groups (consumo) --------------------------------------------------------
+
+const GROUPS = [
+  {
+    groupId: 'analytics-pipeline',
+    state: 'Stable',
+    generation: 12,
+    leaderId: 'member-a',
+    members: [
+      { memberId: 'member-a', subscriptionBytes: 320 },
+      { memberId: 'member-b', subscriptionBytes: 256 },
+    ],
+    offsets: [
+      { topic: 'orders.events', partition: 0, committedOffset: 9800, highWatermark: 10_000 },
+      { topic: 'orders.events', partition: 1, committedOffset: 5000, highWatermark: 5000 },
+      { topic: 'orders.events', partition: 2, committedOffset: 3200, highWatermark: 3350 },
+    ],
+  },
+  {
+    groupId: 'billing-consumers',
+    state: 'Stable',
+    generation: 5,
+    leaderId: 'member-x',
+    members: [{ memberId: 'member-x', subscriptionBytes: 288 }],
+    offsets: [
+      { topic: 'payments.settled', partition: 0, committedOffset: 1200, highWatermark: 1200 },
+    ],
+  },
+  {
+    groupId: 'audit-archiver',
+    state: 'Empty',
+    generation: 0,
+    leaderId: '',
+    members: [],
+    offsets: [],
+  },
+];
+
+function groupSummary(g) {
+  return {
+    groupId: g.groupId,
+    state: g.state,
+    generation: g.generation,
+    memberCount: g.members.length,
+  };
+}
+
+function groupDescription(g) {
+  return {
+    groupId: g.groupId,
+    state: g.state,
+    generation: g.generation,
+    leaderId: g.leaderId,
+    members: g.members,
+    offsets: g.offsets.map((o) => ({ ...o, lag: o.highWatermark - o.committedOffset })),
+  };
+}
+
 // --- HTTP --------------------------------------------------------------------
 
 function sendJson(res, status, body, headers = {}) {
@@ -394,6 +452,31 @@ const server = createServer((req, res) => {
         sendProblem(res, 500, 'Error del doble', 'Fallo inesperado en el doble del broker.');
       }
     });
+    return;
+  }
+  if (path === '/api/v1/groups' || path.startsWith('/api/v1/groups/')) {
+    if (bearer(req) !== GOOD_TOKEN) {
+      sendProblem(res, 401, 'No autorizado', 'Falta un token válido (Bearer).');
+      return;
+    }
+    if (path === '/api/v1/groups' && method === 'GET') {
+      const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'));
+      const size = Math.max(1, Number(url.searchParams.get('size') ?? '20'));
+      const all = GROUPS.map(groupSummary);
+      sendJson(res, 200, { page, size, items: all.slice((page - 1) * size, page * size) });
+      return;
+    }
+    const id = decodeURIComponent(path.slice('/api/v1/groups/'.length));
+    const group = GROUPS.find((g) => g.groupId === id);
+    if (method === 'GET' && group !== undefined) {
+      sendJson(res, 200, groupDescription(group));
+      return;
+    }
+    if (group === undefined) {
+      sendProblem(res, 404, 'Grupo no encontrado', `No existe el grupo «${id}».`);
+      return;
+    }
+    sendProblem(res, 404, 'Ruta no encontrada', `El doble no enruta ${method} ${path}.`);
     return;
   }
   if (method === 'GET' && path === '/api/v1/cluster') {

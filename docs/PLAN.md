@@ -427,8 +427,17 @@ recargar** → borrar. El doble del broker pasó a **stateful**. Repo verde: typ
   El doble del broker es ahora **stateful** (POST/GET `{name}`/PATCH/DELETE con persistencia en
   memoria). Capturas revisadas. Repo verde: typecheck/lint/build/test (contract 1 + BFF 51 + web 10)
   + e2e shell/viz (7) y full-stack (**8**).
-- [ ] **F3.3 Grupos** — listar y **describir** (miembros, offsets, lag). *AC:* describe muestra lag
+- [x] **F3.3 Grupos** — listar y **describir** (miembros, offsets, lag). *AC:* describe muestra lag
   real por partición.
+  ✔ Vista de grupos de consumo (solo lectura): **lista paginada** con **estado** por grupo
+  (`GroupStateBadge` con icono + etiqueta, nunca color solo) y **describir** en panel —estado,
+  generación, líder, **miembros** (con marca de líder y bytes de suscripción) y **offsets confirmados
+  por partición con su lag** (`highWatermark − committedOffset`), más el lag total—. Datos tipados del
+  contrato + TanStack Query; fila seleccionable accesible. **Verificado en navegador full-stack**
+  (`e2e-fullstack/groups.spec.ts`): lista `analytics-pipeline`/`billing-consumers`/`audit-archiver`
+  con su estado → describe `analytics-pipeline` → miembros (`member-a` líder, `member-b`) y **lag real
+  por partición** (p0 = 200, total 350). El doble del broker sirve `groups` (list + describe). Captura
+  revisada.
 - [ ] **F3.4 Particiones** — detalle por topic (líder, high-watermark, leaderEpoch, lag).
   *AC:* datos coherentes con el describe del topic.
 - [ ] **F3.5 Cluster / Raft** — nodos, roles, term, commit index, líder por partición, follower lag;
