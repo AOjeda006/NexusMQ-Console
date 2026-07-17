@@ -93,6 +93,14 @@ Auth: Bearer JWT (HS256) si el broker arrancó con `--jwt-secret`. Errores: RFC 
   deja pasar sin token. `POST /api/auth/login` valida el token contra el broker; `POST /api/auth/logout`
   destruye la sesión; `GET /api/auth/session` solo informa `{ authenticated }`. (esencial — deriva
   del modelo de auth de arriba)
+- **2026-07-17 — Nombres de métrica del snapshot (F3.1) (reversible).** El `MetricsSnapshot` del
+  contrato es una **lista abierta** de series (`name` libre estilo Prometheus): el contrato **no fija
+  los nombres**. El Dashboard asume, en un único sitio (`features/metrics/metrics-snapshot.ts`),
+  `nexusmq_messages_in_total` / `nexusmq_messages_out_total` (counters), `nexusmq_produce_latency_seconds`
+  (histograma) y `nexusmq_connections_active` (gauge), y **degrada con honestidad** (muestra «—») si
+  una serie no está. Como no hay broker real a mano, se verifica contra el **doble** (que emite esos
+  nombres); si el broker real usa otros, se ajusta ese único módulo sin tocar la UI. **Limitación
+  documentada.**
 - **2026-07-16 — Tooling del BFF (reversible).** NestJS 11 sobre **Express**; el paquete `apps/bff`
   emite **CommonJS** (idiomático en Nest; el resto del monorepo sigue ESM), con **DI por
   constructor** vía `reflect-metadata` (`experimentalDecorators` + `emitDecoratorMetadata`). El
@@ -172,7 +180,17 @@ navegable, sistema de diseño dataviz (light/dark, AA), capa de datos tipada + a
 de visualización (ECharts/uPlot/visx/react-three-fiber) y tiempo real con fallback. Repo verde en
 todo el monorepo: typecheck/lint/build/test (51 del BFF) + e2e del shell/viz (7, Playwright sobre
 `vite preview`) + e2e full-stack (6, BFF real sirviendo la SPA y proxyando a un doble del broker).
-**Siguiente: Fase 3 — Vistas v1** (F3.1: Dashboard vivo), pendiente de arrancar en una próxima sesión.
+
+**F3.1 COMPLETA**: Dashboard vivo. Métricas por **SSE del BFF** (fallback a polling) con **derivación
+en cliente** —throughput por segundo (diferencia de counters) y latencias p50/p99/p999 (cuantiles del
+histograma del intervalo)— pura y testeada (`metrics-snapshot.ts` + 10 tests). Cuatro KPIs, **dos
+gráficas uPlot en vivo** (streaming con `setData`, leyenda, tokens dataviz, tema) y panel
+**Clúster/Raft** (nodos + tabla de consenso por partición) sondeado con TanStack Query. **Verificado
+en navegador full-stack**: en vivo (SSE), muestras que avanzan en < 2 s (AC), p99 en ms, clúster
+saludable y estado Raft real; captura revisada. El doble del broker emite ahora el `MetricsSnapshot`
+del contrato (counters + histograma + gauge) y un `ClusterInfo` con Raft vivo. Repo verde:
+typecheck/lint/build/test (51 BFF + **10 web**) + e2e shell/viz (7) + e2e full-stack (**7**).
+**Siguiente: F3.2 — Topics (CRUD completo + PATCH de retención).**
 
 ---
 
@@ -366,8 +384,24 @@ todo el monorepo: typecheck/lint/build/test (51 del BFF) + e2e del shell/viz (7,
   (typecheck/lint/build/test + ambos e2e).
 
 ### Fase 3 — Vistas v1
-- [ ] **F3.1 Dashboard vivo** — throughput, latencias p50/p99/p999, salud del cluster, estado Raft;
+- [x] **F3.1 Dashboard vivo** — throughput, latencias p50/p99/p999, salud del cluster, estado Raft;
   todo en vivo (SSE). *AC:* refleja cambios reales del broker en <2 s.
+  ✔ Dashboard que consume el **SSE del BFF** (con fallback a polling) vía `useLiveStream` y **deriva
+  en el cliente** lo que el snapshot no trae calculado: throughput por segundo (diferencia de
+  counters) y latencias p50/p99/p999 (cuantiles del histograma **del intervalo**, `histogram_quantile`
+  estilo Prometheus). La derivación es **pura y testeada** (`metrics-snapshot.ts` + 10 tests Vitest:
+  cuantiles, cubo +Inf, delta de histograma). Cuatro KPIs (entrada/salida msg/s, p99, salud del
+  clúster) + **dos gráficas uPlot en vivo** (throughput y latencias, streaming con `setData` sin
+  reconstruir, leyenda, tokens dataviz, tema claro/oscuro) + panel **Clúster/Raft** (nodos con el
+  local marcado; tabla por partición: rol, líder, término, commit index, lag máx.), este último
+  sondeado aparte con TanStack Query (`GET /api/v1/cluster` no viaja por el SSE). Estados
+  honestos: «—» si falta una serie, spinner/`ProblemAlert` en el panel. **Verificado en navegador
+  full-stack** (`e2e-fullstack/dashboard.spec.ts`): login → el panel pasa a **en vivo (SSE)**, el
+  contador de muestras **avanza en < 2 s** (AC), p99 en ms, clúster «3 nodos · Saludable» y estado
+  Raft real (`orders.events-p0`, «Líder»); las 2 gráficas se dibujan en `<canvas>`. Captura revisada.
+  El doble del broker se amplió para emitir el **`MetricsSnapshot` del contrato** (counters +
+  histograma + gauge) desde un reloj único (SSE y snapshot coherentes) y un `ClusterInfo` con
+  consenso Raft vivo. Repo verde (typecheck/lint/build/test + e2e shell/viz **7** y full-stack **7**).
 - [ ] **F3.2 Topics** — listar (paginado), crear, describir (particiones), borrar, **editar
   retención (`PATCH`)**. *AC:* CRUD completo contra el broker real; el `PATCH` de retención se aplica
   y se ve el efecto.

@@ -7,14 +7,7 @@ import { ThemeToggle } from '@/app/theme/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { type LiveStatus, useLiveStream } from '@/features/live/use-live-stream';
-
-/** Muestra tolerante: los frames SSE traen `seq`; el snapshot trae `messagesIn`. */
-interface LiveSample {
-  readonly generatedAtMs: number;
-  readonly seq?: number;
-  readonly messagesIn?: number;
-  readonly topics?: number;
-}
+import { findCounter, METRIC, type MetricsSnapshot } from '@/features/metrics/metrics-snapshot';
 
 const GOOD_STREAM = '/api/v1/stream';
 const BROKEN_STREAM = '/api/v1/stream-broken';
@@ -41,13 +34,18 @@ const STATUS_META: Record<LiveStatus, StatusMeta> = {
  */
 export function LiveLabPage(): ReactNode {
   const [broken, setBroken] = useState(false);
-  const parse = useCallback((raw: string): LiveSample => JSON.parse(raw) as LiveSample, []);
+  const parse = useCallback(
+    (raw: string): MetricsSnapshot => JSON.parse(raw) as MetricsSnapshot,
+    [],
+  );
 
-  const live = useLiveStream<LiveSample>({
+  const live = useLiveStream<MetricsSnapshot>({
     parse,
     streamPath: broken ? BROKEN_STREAM : GOOD_STREAM,
     pollIntervalMs: 1500,
   });
+
+  const messagesIn = live.data ? findCounter(live.data, METRIC.messagesIn) : null;
 
   const meta = STATUS_META[live.status];
   const updatedLabel = useMemo(
@@ -108,12 +106,10 @@ export function LiveLabPage(): ReactNode {
             </div>
             <div className="space-y-0.5">
               <dt className="text-xs uppercase tracking-wide text-faint-foreground">
-                {live.source === 'polling' ? 'Mensajes (in)' : 'Secuencia'}
+                Mensajes (in) acumulados
               </dt>
               <dd className="font-medium tabular-nums text-foreground">
-                {live.source === 'polling'
-                  ? (live.data?.messagesIn ?? '—')
-                  : (live.data?.seq ?? '—')}
+                {messagesIn === null ? '—' : messagesIn.toLocaleString('es-ES')}
               </dd>
             </div>
           </dl>

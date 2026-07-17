@@ -1,0 +1,60 @@
+import { expect, test } from '@playwright/test';
+
+const SHOTS_DIR =
+  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
+
+const GOOD_TOKEN = 'good-operator-token';
+
+/** Inicia sesión pegando el token válido; tras login se aterriza en el Dashboard (`/`). */
+async function login(page: import('@playwright/test').Page): Promise<void> {
+  await page.goto('/login');
+  await page.getByLabel('Token de operador').fill(GOOD_TOKEN);
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await expect(page.getByText('Sesión activa')).toBeVisible();
+}
+
+/**
+ * E2E full-stack del **Dashboard vivo** (F3.1). Topología de producción: el BFF
+ * sirve la SPA y proxya `/api/*` al doble del broker (métricas por SSE, cluster
+ * protegido). Verifica que el panel refleja **cambios reales en < 2 s** (AC),
+ * dibuja las gráficas y muestra el estado Raft.
+ */
+test('el Dashboard muestra métricas en vivo, gráficas y estado Raft del broker vía BFF', async ({
+  page,
+}) => {
+  await login(page);
+
+  const dashboard = page.getByTestId('dashboard');
+  await expect(dashboard).toBeVisible();
+
+  // 1) Flujo en vivo por SSE (el BFF reemite los frames del doble del broker).
+  await expect(dashboard).toHaveAttribute('data-status', 'live');
+  await expect(dashboard).toHaveAttribute('data-source', 'sse');
+
+  // 2) AC de F3.1: refleja cambios reales del broker en < 2 s. El contador de
+  //    muestras (una por frame SSE) tiene que avanzar dentro de esa ventana.
+  const samples0 = Number(await dashboard.getAttribute('data-samples'));
+  await expect
+    .poll(async () => Number(await dashboard.getAttribute('data-samples')), { timeout: 2000 })
+    .toBeGreaterThan(samples0);
+
+  // 3) KPIs con datos reales: latencia p99 en ms y salud del clúster (3 nodos).
+  await expect(page.getByTestId('kpi-p99')).toContainText('ms');
+  const clusterKpi = page.getByTestId('kpi-cluster');
+  await expect(clusterKpi).toContainText('3');
+  await expect(clusterKpi).toContainText('Saludable');
+
+  // 4) Las dos gráficas de alta frecuencia (uPlot) se dibujan en <canvas>.
+  await expect(page.getByRole('heading', { name: 'Throughput (mensajes/s)' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Latencia de publicación/ })).toBeVisible();
+  expect(await page.locator('canvas').count()).toBeGreaterThanOrEqual(2);
+
+  // 5) Estado Raft real: nodo local + una partición liderada del broker.
+  const clusterPanel = page.getByTestId('cluster-panel');
+  await expect(clusterPanel).toContainText('Nodo 1');
+  await expect(clusterPanel).toContainText('(local)');
+  await expect(clusterPanel.getByText('orders.events-p0')).toBeVisible();
+  await expect(clusterPanel.getByText('Líder').first()).toBeVisible();
+
+  await page.screenshot({ path: `${SHOTS_DIR}/f31-dashboard.png`, fullPage: true });
+});

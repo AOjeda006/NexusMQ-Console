@@ -42,16 +42,17 @@ test('login válido entra y Topics lista los topics reales del broker vía BFF',
   await page.getByRole('link', { name: 'Topics' }).click();
   await expect(page).toHaveURL(/\/topics$/);
 
-  // Datos reales servidos por el doble del broker a través del BFF.
-  await expect(page.getByRole('cell', { name: 'orders.events' })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'payments.settled' })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'telemetry.raw' })).toBeVisible();
+  // Datos reales servidos por el doble del broker a través del BFF (nombre exacto:
+  // la consola ya muestra celdas «orders.events-pN» en el panel Raft).
+  await expect(page.getByRole('cell', { name: 'orders.events', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'payments.settled', exact: true })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'telemetry.raw', exact: true })).toBeVisible();
   await page.screenshot({ path: `${SHOTS_DIR}/f22-topics.png`, fullPage: true });
 
   // La cookie de sesión httpOnly persiste la sesión al recargar.
   await page.reload();
   await expect(page).toHaveURL(/\/topics$/);
-  await expect(page.getByRole('cell', { name: 'orders.events' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'orders.events', exact: true })).toBeVisible();
 });
 
 test('cerrar sesión invalida la sesión y el guard vuelve al login', async ({ page }) => {
