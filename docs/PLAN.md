@@ -679,9 +679,12 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
   unitarios `metrics-snapshot.test.ts`/`history-range.test.ts`. *AC:* los dobles emiten los nombres
   reales; los tests aserta el contrato (`name:'nexus_broker_requests_total'`, `groupId`), no la
   implementación. ✔ BFF 82/82, typecheck/lint verdes.
-- [ ] **F5.9 Anclar nombres al catálogo del broker** — comentario/enlace a `docs/metrics.md` en
-  `metrics-snapshot.ts` y `history-range.ts` para que cualquier cambio futuro del broker se refleje
-  aquí (`sync:openapi` + revisar catálogo). *AC:* enlaces presentes.
+- [x] **F5.9 Anclar nombres al catálogo del broker** — `@see` clicable a `docs/metrics.md` del broker
+  (repo hermano `../NexusMQ`) en los tres módulos que fijan nombres de métrica: `metrics-snapshot.ts`
+  (Dashboard), `history-range.ts` (allow-list del cliente) y `history-metrics.ts` (constructor de
+  PromQL en servidor, fuente de verdad del allow-list). Así, si el broker cambia el catálogo, el punto
+  a tocar queda enlazado (`sync:openapi` + revisar catálogo). *AC:* enlaces presentes **y resueltos**
+  (rutas relativas verificadas contra el fichero real del repo hermano).
 
 ## Notas / riesgos
 

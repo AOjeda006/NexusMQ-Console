@@ -35,7 +35,7 @@ export type LabelSelector = Readonly<Record<string, string>>;
  * una serie no está presente (p. ej. `messages_total`/`connections_active` hasta
  * que el broker las emita).
  *
- * @see ../../../../../NexusMQ/docs/metrics.md — catálogo de métricas del broker.
+ * @see ../../../../../../NexusMQ/docs/metrics.md — catálogo de métricas del broker.
  */
 export const METRIC = {
   /** counter — peticiones del plano de datos servidas, por `{api,protocol}`. */

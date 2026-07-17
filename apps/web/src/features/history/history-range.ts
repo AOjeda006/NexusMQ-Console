@@ -49,6 +49,8 @@ export function resolveWindow(preset: RangePreset, nowMs: number): HistoryWindow
  * un id de esta lista y el BFF construye la PromQL en servidor contra los nombres
  * REALES del broker (`docs/metrics.md` de `../NexusMQ`). Debe casar con
  * `apps/bff/src/prometheus/history-metrics.ts` (fuente de verdad del allow-list).
+ *
+ * @see ../../../../../../NexusMQ/docs/metrics.md — catálogo de métricas del broker.
  */
 export const HISTORY_METRIC_ID = {
   throughputProduce: 'throughput-produce',

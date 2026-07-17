@@ -8,7 +8,7 @@
  * `../NexusMQ`). Familias del plano de datos `nexus_broker_*` con `{api,protocol}`.
  * Si el broker cambia el catálogo, corre `sync:openapi` y refleja el cambio aquí.
  *
- * @see ../../../../NexusMQ/docs/metrics.md — catálogo de métricas del broker.
+ * @see ../../../../../NexusMQ/docs/metrics.md — catálogo de métricas del broker.
  */
 
 /** Ids de métrica de historia permitidos (allow-list cerrada). */
