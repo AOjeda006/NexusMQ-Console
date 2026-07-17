@@ -4,6 +4,7 @@ import { Agent, type Dispatcher, fetch } from 'undici';
 
 import { BrokerService } from '../broker/broker.service';
 import { ConfigService } from '../config/config.service';
+import { pumpWithBackpressure } from './backpressure';
 import { backoffDelayMs, sleep } from './reconnect';
 
 /** Latido para mantener viva la conexión del navegador (y atravesar proxies). */
@@ -139,16 +140,9 @@ export class StreamService {
       };
       rearmIdle();
 
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-        rearmIdle();
-        if (value !== undefined && !response.writableEnded) {
-          response.write(Buffer.from(value));
-        }
-      }
+      // Reemite cada chunk **con backpressure acotado**: si el cliente es lento,
+      // el bucle se pausa hasta `drain` en lugar de bufferizar sin límite.
+      await pumpWithBackpressure(reader, response, attempt.signal, rearmIdle);
     } finally {
       clearTimeout(watchdog);
       clientSignal.removeEventListener('abort', onClientGone);

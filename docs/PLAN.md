@@ -644,9 +644,13 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
   la cookie se alinea con el TTL. ✔ 4 tests unitarios (fresca resuelve; vencida da 401 y sale del Map;
   `purgeExpired` cuenta; el barrido purga sin dejar crecer el Map). BFF 63/63, typecheck/lint verdes.
   Documentado en README + `.env.example`.
-- [ ] **F5.5 SSE con backpressure acotado** — respetar el retorno de `response.write()` (pausar el
-  reader hasta `drain`) o descartar frames intermedios quedándose con el último. *AC:* con un cliente
-  lento la memoria por conexión no crece sin límite (test determinista).
+- [x] **F5.5 SSE con backpressure acotado** — nuevo módulo `stream/backpressure.ts`:
+  `writeWithBackpressure` respeta el retorno de `response.write()` (si el buffer está lleno, **espera a
+  `drain`** antes de seguir) y `pumpWithBackpressure` bombea los chunks del upstream pausando la lectura
+  hasta que el socket drene (propaga el backpressure al broker). `stream.service.ts` usa el bombeo en
+  lugar de escribir a ciegas. Sale limpio ante `abort` (cliente ido) sin colgarse. ✔ 6 tests
+  deterministas (write true resuelve; write false se pausa hasta drain; abort no cuelga; **cliente lento
+  ⇒ solo se lee 1 chunk, no crece sin límite**); los 3 e2e de stream siguen verdes. BFF 69/69.
 - [ ] **F5.6 `query_range` con allow-list en servidor** — dejar de ser passthrough de PromQL; exigir
   sesión (`@Protected`) y construir la PromQL en servidor desde un allow-list (id de métrica + rango/
   step validados). *AC:* query fuera del allow-list → 400; con sesión + métrica válida → ok (tests).
