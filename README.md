@@ -61,6 +61,7 @@ Los secretos van **siempre por entorno**, nunca horneados en la imagen. Plantill
 |---|---|---|---|
 | `SESSION_SECRET` | **Sí** | — | Firma la cookie de sesión httpOnly. **≥32 caracteres** (`openssl rand -hex 32`). |
 | `SESSION_TTL_HOURS` | No | `8` | TTL de la sesión de operador. Vencida, el BFF la purga y exige re-login. |
+| `CONSOLE_REQUIRE_LOGIN` | No | `true` | Si `true`, la consola exige login **siempre** (aunque el broker esté en modo abierto). `false` espeja el modo del broker. |
 | `BROKER_ADMIN_URL` | **Sí** | — | URL del plano de operación (admin) del broker NexusMQ. |
 | `PROMETHEUS_URL` | No | — | Data source de historia. Sin él, la vista de Historia **degrada limpio**. |
 | `PORT` | No | `3000` | Puerto en el que escucha la consola. |

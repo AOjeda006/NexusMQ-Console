@@ -660,9 +660,15 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
   e2e reescrito con dobles de broker+Prometheus: sin sesión→401, con sesión+métrica válida→series,
   métrica fuera del allow-list→400, step no-duración→400, degradado→available:false, inaccesible→502.
   BFF 75/75, web 22/22, typecheck/lint verdes; historia full-stack verde.
-- [ ] **F5.7 Gate de login del BFF** — con `CONSOLE_REQUIRE_LOGIN=true` (default true), el guard exige
-  sesión válida SIEMPRE (aunque el broker esté abierto); proteger `GET /api/v1/metrics/snapshot`.
-  *AC:* tests de ambos modos (flag on/off, broker abierto/secreto).
+- [x] **F5.7 Gate de login del BFF** — `CONSOLE_REQUIRE_LOGIN` (default **true**): el `SessionAuthGuard`
+  exige sesión **siempre** en rutas `@Protected` (`config.consoleRequireLogin || isBrokerAuthRequired`),
+  aunque el broker esté abierto; con `false` espeja el modo del broker. `GET /api/v1/metrics/snapshot`
+  pasa a **`@Protected`** (+ inyección del token confinado) — antes se alcanzaba sin login incluso en
+  modo secreto (fuga). La **SPA se adapta sola**: su `probeAccess` sondea una ruta protegida → 401 →
+  estado `locked` → redirige a login. ✔ Tests de ambos modos: metrics/snapshot sin sesión→401 (modo
+  secreto); gate activo sobre broker abierto → topics/snapshot sin sesión→401 y tras login→200; +2
+  tests de esquema (default true, `false` desactiva). Los e2e del BFF fijan el gate en `false` por
+  defecto (aíslan mecánica); el full-stack corre con el gate **on** (14/14 verdes). BFF 81/81.
 - [ ] **F5.8 Robustez** — (a) `isBrokerAuthRequired` con TTL (re-detecta si el broker reinicia en otro
   modo); (b) alinear **todos** los dobles (broker-double.ts, prometheus-double.ts, fake-broker.mjs,
   metrics-snapshot.test.ts, history-range.test.ts) con el contrato REAL (nombres/labels/formas del

@@ -1,14 +1,26 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const SHOTS_DIR =
   'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
 
+const GOOD_TOKEN = 'good-operator-token';
+
+/** Inicia sesión (el fallback a polling del snapshot exige sesión desde F5.7). */
+async function login(page: Page): Promise<void> {
+  await page.goto('/login');
+  await page.getByLabel('Token de operador').fill(GOOD_TOKEN);
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await expect(page.getByText('Sesión activa')).toBeVisible();
+}
+
 /**
  * E2E full-stack del tiempo real (F2.4): `/live-lab` usa `useLiveStream` contra
  * el **SSE real del BFF** (que reemite los frames del doble del broker) y su
- * fallback a polling del snapshot. Rutas abiertas ⇒ no requiere login.
+ * fallback a polling del snapshot. El SSE es abierto; el snapshot del fallback
+ * exige sesión (gate de login F5.7), así que primero se inicia sesión.
  */
 test('recibe push por SSE y cae a polling al fallar el SSE, sin romper la UI', async ({ page }) => {
+  await login(page);
   await page.goto('/live-lab');
 
   const panel = page.getByTestId('live-panel');

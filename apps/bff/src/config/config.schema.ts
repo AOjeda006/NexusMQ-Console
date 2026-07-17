@@ -37,6 +37,17 @@ const envSchema = z.object({
     .default('true')
     .transform((value) => value === 'true'),
 
+  /**
+   * Gate de login de la consola. Si `true` (por defecto), las rutas protegidas
+   * exigen **sesión siempre**, aunque el broker esté en modo abierto (defensa en
+   * profundidad). Si `false`, el guard espeja el modo del broker (deja pasar sin
+   * login en modo abierto).
+   */
+  CONSOLE_REQUIRE_LOGIN: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+
   /** Directorio del build estático de la SPA a servir en `/` (F1.7). Opcional. */
   WEB_DIST_PATH: z.string().min(1).optional(),
 });
@@ -51,6 +62,7 @@ export interface BffConfig {
   readonly sessionTtlMs: number;
   readonly nodeExtraCaCerts: string | undefined;
   readonly brokerTlsRejectUnauthorized: boolean;
+  readonly consoleRequireLogin: boolean;
   readonly webDistPath: string | undefined;
 }
 
@@ -90,6 +102,7 @@ export function validateEnv(env: NodeJS.ProcessEnv): BffConfig {
     sessionTtlMs: e.SESSION_TTL_HOURS * 3_600_000,
     nodeExtraCaCerts: e.NODE_EXTRA_CA_CERTS,
     brokerTlsRejectUnauthorized: e.BROKER_TLS_REJECT_UNAUTHORIZED,
+    consoleRequireLogin: e.CONSOLE_REQUIRE_LOGIN,
     webDistPath: e.WEB_DIST_PATH,
   };
 }

@@ -43,6 +43,13 @@ describe('Auth — broker en modo secreto (F1.4)', () => {
     expect(res.body).toMatchObject({ title: 'No autenticado', status: 401 });
   });
 
+  it('protege metrics/snapshot: sin sesión responde 401 (fuga en modo secreto, F5.7)', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/metrics/snapshot');
+
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ title: 'No autenticado', status: 401 });
+  });
+
   it('rechaza el login si el broker no acepta el token', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/auth/login')
@@ -118,5 +125,57 @@ describe('Auth — broker en modo abierto (F1.4)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ page: 1, size: 20 });
+  });
+});
+
+/**
+ * Gate de login (F5.7): con `CONSOLE_REQUIRE_LOGIN=true`, la consola exige sesión
+ * **siempre**, aunque el broker esté en **modo abierto**. Contrasta con el modo
+ * abierto de arriba (gate inactivo), que sí deja operar sin login.
+ */
+describe('Auth — gate de login activo, broker abierto (F5.7)', () => {
+  let broker: BrokerDouble;
+  let app: INestApplication;
+  let agent: ReturnType<typeof request.agent>;
+
+  beforeAll(async () => {
+    broker = await startBrokerDouble({ requireAuth: false });
+    process.env['BROKER_ADMIN_URL'] = broker.baseUrl;
+    process.env['CONSOLE_REQUIRE_LOGIN'] = 'true';
+
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+    agent = request.agent(app.getHttpServer());
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await broker.close();
+    process.env['CONSOLE_REQUIRE_LOGIN'] = 'false';
+  });
+
+  it('exige sesión aunque el broker esté abierto: topics sin sesión → 401', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/topics');
+
+    expect(res.status).toBe(401);
+    expect(res.body).toMatchObject({ title: 'No autenticado', status: 401 });
+  });
+
+  it('metrics/snapshot sin sesión → 401 (aunque el broker esté abierto)', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1/metrics/snapshot');
+
+    expect(res.status).toBe(401);
+  });
+
+  it('tras iniciar sesión, opera con normalidad (topics y snapshot)', async () => {
+    const login = await agent.post('/api/auth/login').send({ token: VALID_TOKEN });
+    expect(login.status).toBe(200);
+
+    const topics = await agent.get('/api/v1/topics');
+    expect(topics.status).toBe(200);
+
+    const snapshot = await agent.get('/api/v1/metrics/snapshot');
+    expect(snapshot.status).toBe(200);
   });
 });

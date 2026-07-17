@@ -31,6 +31,16 @@ describe('validateEnv (config fail-fast)', () => {
     expect(cfg.brokerTlsRejectUnauthorized).toBe(false);
   });
 
+  it('el gate de login (CONSOLE_REQUIRE_LOGIN) es true por defecto y desactivable con "false"', () => {
+    expect(validateEnv({ ...base }).consoleRequireLogin).toBe(true);
+    expect(validateEnv({ ...base, CONSOLE_REQUIRE_LOGIN: 'false' }).consoleRequireLogin).toBe(false);
+  });
+
+  it('el TTL de sesión por defecto es 8 h y es configurable (SESSION_TTL_HOURS)', () => {
+    expect(validateEnv({ ...base }).sessionTtlMs).toBe(8 * 3_600_000);
+    expect(validateEnv({ ...base, SESSION_TTL_HOURS: '2' }).sessionTtlMs).toBe(2 * 3_600_000);
+  });
+
   it('aborta con un mensaje claro si falta BROKER_ADMIN_URL', () => {
     const run = (): unknown => validateEnv({ SESSION_SECRET: 'a'.repeat(32) });
 

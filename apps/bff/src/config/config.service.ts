@@ -30,6 +30,9 @@ export class ConfigService {
   /** ¿Validar el certificado TLS del broker al hacer de proxy? */
   readonly brokerTlsRejectUnauthorized: boolean;
 
+  /** Gate de login: si `true`, las rutas protegidas exigen sesión aunque el broker esté abierto. */
+  readonly consoleRequireLogin: boolean;
+
   /** Directorio del build estático de la SPA a servir en `/` (F1.7). */
   readonly webDistPath: string | undefined;
 
@@ -42,6 +45,7 @@ export class ConfigService {
     this.sessionSecret = config.sessionSecret;
     this.sessionTtlMs = config.sessionTtlMs;
     this.brokerTlsRejectUnauthorized = config.brokerTlsRejectUnauthorized;
+    this.consoleRequireLogin = config.consoleRequireLogin;
     this.webDistPath = config.webDistPath;
   }
 
