@@ -6,6 +6,7 @@ import {
   findGauge,
   findHistogram,
   histogramQuantile,
+  METRIC,
   type MetricsSnapshot,
   toMillis,
 } from './metrics-snapshot';
@@ -13,44 +14,88 @@ import {
 /** Cubos (le en segundos) con una distribución cuyos cuantiles conocemos. */
 const LES = [0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1] as const;
 const CUM = [80, 380, 640, 850, 950, 990, 997, 999, 1000, 1000] as const;
+/** Una distribución distinta para `fetch` (latencias más altas), para detectar mezclas. */
+const FETCH_CUM = [0, 0, 0, 10, 40, 120, 300, 480, 495, 500] as const;
 
+function bucketsFrom(cum: readonly number[], scale = 1): { le: number; cumulativeCount: number }[] {
+  return LES.map((le, i) => ({ le, cumulativeCount: cum[i] * scale }));
+}
+
+/**
+ * Snapshot con las métricas y labels **REALES** del broker: familias del plano de
+ * datos `nexus_broker_*` desglosadas por `{api: produce|fetch, protocol}`, y
+ * `connections_active` por `{plane}`. Los valores de `produce` y `fetch` difieren
+ * a propósito para detectar mezclas por label.
+ */
 function snapshotWith(scale = 1): MetricsSnapshot {
   return {
     metrics: [
-      { name: 'nexusmq_messages_in_total', type: 'counter', labels: {}, value: 1000 * scale },
-      { name: 'nexusmq_messages_out_total', type: 'counter', labels: {}, value: 800 * scale },
-      { name: 'nexusmq_connections_active', type: 'gauge', labels: {}, value: 120 },
+      // requests_total: produce (1000+200) y fetch (500+100) por protocolo.
+      { name: METRIC.requests, type: 'counter', labels: { api: 'produce', protocol: 'native' }, value: 1000 * scale },
+      { name: METRIC.requests, type: 'counter', labels: { api: 'produce', protocol: 'kafka' }, value: 200 * scale },
+      { name: METRIC.requests, type: 'counter', labels: { api: 'fetch', protocol: 'native' }, value: 500 * scale },
+      { name: METRIC.requests, type: 'counter', labels: { api: 'fetch', protocol: 'kafka' }, value: 100 * scale },
+      // errores: solo native, produce y fetch.
+      { name: METRIC.requestErrors, type: 'counter', labels: { api: 'produce', protocol: 'native' }, value: 3 * scale },
+      { name: METRIC.requestErrors, type: 'counter', labels: { api: 'fetch', protocol: 'native' }, value: 1 * scale },
+      // conexiones activas por plano.
+      { name: METRIC.connections, type: 'gauge', labels: { plane: 'native' }, value: 80 },
+      { name: METRIC.connections, type: 'gauge', labels: { plane: 'kafka' }, value: 30 },
+      { name: METRIC.connections, type: 'gauge', labels: { plane: 'admin' }, value: 10 },
+      // latencia: produce native (dist. conocida), produce kafka (parcial), fetch native (otra dist.).
       {
-        name: 'nexusmq_produce_latency_seconds',
+        name: METRIC.requestDuration,
         type: 'histogram',
-        labels: {},
+        labels: { api: 'produce', protocol: 'native' },
         count: 1000 * scale,
         sum: 6 * scale,
-        buckets: LES.map((le, i) => ({ le, cumulativeCount: CUM[i] * scale })),
+        buckets: bucketsFrom(CUM, scale),
+      },
+      {
+        name: METRIC.requestDuration,
+        type: 'histogram',
+        labels: { api: 'produce', protocol: 'kafka' },
+        count: 300 * scale,
+        sum: 2 * scale,
+        buckets: bucketsFrom([20, 100, 180, 240, 280, 295, 299, 300, 300, 300], scale),
+      },
+      {
+        name: METRIC.requestDuration,
+        type: 'histogram',
+        labels: { api: 'fetch', protocol: 'native' },
+        count: 500 * scale,
+        sum: 40 * scale,
+        buckets: bucketsFrom(FETCH_CUM, scale),
       },
     ],
   };
 }
 
-describe('findCounter / findGauge', () => {
-  it('lee counters y gauges por nombre', () => {
+describe('findCounter / findGauge con filtrado por label', () => {
+  it('filtra por api sin mezclar produce y fetch (el bug que los dobles ocultaban)', () => {
     const snap = snapshotWith();
-    expect(findCounter(snap, 'nexusmq_messages_in_total')).toBe(1000);
-    expect(findGauge(snap, 'nexusmq_connections_active')).toBe(120);
+    // produce = native (1000) + kafka (200); fetch = native (500) + kafka (100).
+    expect(findCounter(snap, METRIC.requests, { api: 'produce' })).toBe(1200);
+    expect(findCounter(snap, METRIC.requests, { api: 'fetch' })).toBe(600);
+    // Sin selector, suma TODAS las series (equivalente a `sum(...)`).
+    expect(findCounter(snap, METRIC.requests)).toBe(1800);
   });
 
-  it('devuelve null si la serie no existe', () => {
+  it('un selector con varias claves exige que todas coincidan', () => {
+    const snap = snapshotWith();
+    expect(findCounter(snap, METRIC.requests, { api: 'produce', protocol: 'native' })).toBe(1000);
+    expect(findCounter(snap, METRIC.requests, { api: 'produce', protocol: 'kafka' })).toBe(200);
+  });
+
+  it('suma el gauge de conexiones por plano', () => {
+    const snap = snapshotWith();
+    expect(findGauge(snap, METRIC.connections)).toBe(120);
+    expect(findGauge(snap, METRIC.connections, { plane: 'admin' })).toBe(10);
+  });
+
+  it('devuelve null si la serie (o el selector) no casa ninguna muestra', () => {
     expect(findCounter(snapshotWith(), 'ausente')).toBeNull();
-  });
-
-  it('suma varias series con el mismo nombre (p. ej. por partición)', () => {
-    const snap: MetricsSnapshot = {
-      metrics: [
-        { name: 'x_total', type: 'counter', labels: { p: '0' }, value: 10 },
-        { name: 'x_total', type: 'counter', labels: { p: '1' }, value: 32 },
-      ],
-    };
-    expect(findCounter(snap, 'x_total')).toBe(42);
+    expect(findCounter(snapshotWith(), METRIC.requests, { api: 'inexistente' })).toBeNull();
   });
 
   it('no confunde un gauge con un counter del mismo nombre', () => {
@@ -62,8 +107,32 @@ describe('findCounter / findGauge', () => {
   });
 });
 
+describe('findHistogram con filtrado y agregación por le', () => {
+  it('agrega todas las series que casan el selector (produce = native + kafka)', () => {
+    const hist = findHistogram(snapshotWith(), METRIC.requestDuration, { api: 'produce' });
+    expect(hist).not.toBeNull();
+    if (hist === null) return;
+    // count agregado = 1000 (native) + 300 (kafka).
+    expect(hist.count).toBe(1300);
+    // El cubo +Inf (último le finito acumulado) = 1000 + 300.
+    const last = hist.buckets[hist.buckets.length - 1];
+    expect(last.cumulativeCount).toBe(1300);
+  });
+
+  it('no incluye series de otra api (produce no arrastra fetch)', () => {
+    const produce = findHistogram(snapshotWith(), METRIC.requestDuration, {
+      api: 'produce',
+      protocol: 'native',
+    });
+    expect(produce?.count).toBe(1000);
+  });
+});
+
 describe('histogramQuantile', () => {
-  const hist = findHistogram(snapshotWith(), 'nexusmq_produce_latency_seconds');
+  const hist = findHistogram(snapshotWith(), METRIC.requestDuration, {
+    api: 'produce',
+    protocol: 'native',
+  });
 
   it('interpola p50, p99 y p999 dentro del cubo correcto', () => {
     expect(hist).not.toBeNull();
@@ -92,9 +161,11 @@ describe('histogramQuantile', () => {
 });
 
 describe('deltaHistogram', () => {
+  const produceNative = { api: 'produce', protocol: 'native' };
+
   it('recupera la distribución del último intervalo entre dos lecturas acumulativas', () => {
-    const prev = findHistogram(snapshotWith(1), 'nexusmq_produce_latency_seconds');
-    const curr = findHistogram(snapshotWith(2), 'nexusmq_produce_latency_seconds');
+    const prev = findHistogram(snapshotWith(1), METRIC.requestDuration, produceNative);
+    const curr = findHistogram(snapshotWith(2), METRIC.requestDuration, produceNative);
     expect(prev).not.toBeNull();
     expect(curr).not.toBeNull();
     if (prev === null || curr === null) return;
@@ -110,7 +181,7 @@ describe('deltaHistogram', () => {
   });
 
   it('null si no hubo observaciones nuevas (cubos idénticos)', () => {
-    const same = findHistogram(snapshotWith(1), 'nexusmq_produce_latency_seconds');
+    const same = findHistogram(snapshotWith(1), METRIC.requestDuration, produceNative);
     if (same === null) throw new Error('histograma esperado');
     expect(deltaHistogram(same, same)).toBeNull();
   });

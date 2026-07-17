@@ -619,14 +619,19 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
   los módulos inicializan y «Nest application successfully started» (config válida ⇒ el env atravesó el
   env-mode strict; antes fallaba en la init de `ConfigModule`). El flujo del README ya funciona sin
   cambios de comandos. `passThroughEnv` no afecta al hash ni a build/test/typecheck.
-- [ ] **F5.2 Remapear Dashboard + Historia a métricas reales, con filtrado por label** — hoy
-  `sumValues`/`findHistogram` ignoran los labels y suman/eligen a ciegas. Generalizar para aceptar un
-  selector de labels (`{api:'produce'}`). Mapeo: throughput = `nexus_broker_requests_total` (delta por
-  poll agrupado por `api`); latencias = histograma `nexus_broker_request_duration_seconds` (api=produce);
-  tasa de error = `nexus_broker_request_errors_total`; bytes/s = `nexus_broker_request_bytes_total`;
-  mensajes/s = `nexus_broker_messages_total` (degrada). PromQL Historia con `sum by (api) (rate(...))`
-  y `histogram_quantile(q, sum(rate(..._bucket[w])) by (le))`. *AC:* el dashboard deja de mostrar «—»
-  contra un broker real (verificado en navegador).
+- [x] **F5.2 Remapear Dashboard + Historia a métricas reales, con filtrado por label** — `findCounter`/
+  `findGauge`/`findHistogram` aceptan ahora un **selector de labels** (`{api:'produce'}`); `findHistogram`
+  **agrega** por `le` las series que casan (equivalente cliente de `sum(...) by (le)`, p. ej. produce
+  sobre native+kafka). Dashboard remapeado a `nexus_broker_*`: throughput produce/fetch req/s (delta de
+  `requests_total{api}`), latencias p50/p99/p999 de `request_duration_seconds{api=produce}`, **tile nuevo
+  de tasa de error** (`request_errors_total`, con icono de estado), bytes/s y mensajes/s por api (estos
+  degradan «—» si el broker no los emite). Historia con PromQL real:
+  `sum(rate(nexus_broker_requests_total{api="…"}[w]))` y
+  `histogram_quantile(q, sum(rate(nexus_broker_request_duration_seconds_bucket{api="produce"}[w])) by (le))`.
+  ✔ Verificado en navegador full-stack (fake-broker/fake-prometheus alineados al contrato real): el
+  dashboard muestra **datos reales sin «—»** (Produce 12,1 k req/s · 253 k msg/s · 13 MB/s; Fetch 5,9 k
+  req/s; p99 50 ms · p50 3,65 · p999 250 ms; error 0/s con check verde). typecheck/lint verdes; web unit
+  22/22 (filtrado por label + agregación de histograma cubiertos); 14/14 e2e full-stack.
 - [ ] **F5.3 Tile «Conexiones activas»** — mapear a gauge `nexus_broker_connections_active` (sumado o
   desglosado por `plane`). Degrada «—» hasta que el broker lo emita. *AC:* muestra conexiones reales
   cuando el broker las exponga; «—» honesto entretanto.

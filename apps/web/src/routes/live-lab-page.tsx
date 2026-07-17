@@ -7,7 +7,7 @@ import { ThemeToggle } from '@/app/theme/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { type LiveStatus, useLiveStream } from '@/features/live/use-live-stream';
-import { findCounter, METRIC, type MetricsSnapshot } from '@/features/metrics/metrics-snapshot';
+import { API, findCounter, METRIC, type MetricsSnapshot } from '@/features/metrics/metrics-snapshot';
 
 const GOOD_STREAM = '/api/v1/stream';
 const BROKEN_STREAM = '/api/v1/stream-broken';
@@ -45,7 +45,9 @@ export function LiveLabPage(): ReactNode {
     pollIntervalMs: 1500,
   });
 
-  const messagesIn = live.data ? findCounter(live.data, METRIC.messagesIn) : null;
+  const produceRequests = live.data
+    ? findCounter(live.data, METRIC.requests, { api: API.produce })
+    : null;
 
   const meta = STATUS_META[live.status];
   const updatedLabel = useMemo(
@@ -106,10 +108,10 @@ export function LiveLabPage(): ReactNode {
             </div>
             <div className="space-y-0.5">
               <dt className="text-xs uppercase tracking-wide text-faint-foreground">
-                Mensajes (in) acumulados
+                Peticiones (produce) acumuladas
               </dt>
               <dd className="font-medium tabular-nums text-foreground">
-                {messagesIn === null ? '—' : messagesIn.toLocaleString('es-ES')}
+                {produceRequests === null ? '—' : produceRequests.toLocaleString('es-ES')}
               </dd>
             </div>
           </dl>

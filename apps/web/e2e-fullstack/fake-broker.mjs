@@ -98,66 +98,91 @@ function toDescription(name, t) {
 }
 
 // --- Métricas: estado que evoluciona en un único reloj -----------------------
+//
+// Nombres/labels REALES del broker (docs/metrics.md de ../NexusMQ): familias del
+// plano de datos `nexus_broker_*` desglosadas por {api: produce|fetch, protocol}
+// y `nexus_broker_connections_active{plane}`. Contadores split native(0.7)/kafka(0.3)
+// para que el filtrado por label del cliente (produce vs fetch, agregación por
+// protocolo) se ejercite de verdad.
 
 const LATENCY_LES = [0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1];
-const PER_INTERVAL_CUM = [80, 380, 640, 850, 950, 990, 997, 999, 1000, 1000];
-const PER_INTERVAL_TOTAL = 1000;
+/** Distribución por intervalo de `produce` (cuantiles conocidos: p50≈3,6 ms, p99=50 ms). */
+const PRODUCE_INTERVAL = [80, 380, 640, 850, 950, 990, 997, 999, 1000, 1000];
+/** Distribución por intervalo de `fetch` (latencias más altas). */
+const FETCH_INTERVAL = [0, 0, 0, 40, 120, 260, 400, 470, 495, 500];
 
 const metricsState = {
   tick: 0,
-  messagesIn: 0,
-  messagesOut: 0,
-  latencyCount: 0,
-  latencySum: 0,
-  latencyBuckets: LATENCY_LES.map(() => 0),
-  connections: 120,
+  requests: { produce: 0, fetch: 0 },
+  messages: { produce: 0, fetch: 0 },
+  bytes: { produce: 0, fetch: 0 },
+  errors: { produce: 0, fetch: 0 },
+  latency: {
+    produce: { count: 0, sum: 0, buckets: LATENCY_LES.map(() => 0) },
+    fetch: { count: 0, sum: 0, buckets: LATENCY_LES.map(() => 0) },
+  },
+  connections: { native: 120, kafka: 40, admin: 6 },
 };
 
 function advance() {
   const t = metricsState.tick;
-  metricsState.messagesIn += Math.round(4000 + 1500 * Math.sin(t / 4));
-  metricsState.messagesOut += Math.round(3200 + 1200 * Math.sin(t / 4 + 0.8));
-  metricsState.latencyCount += PER_INTERVAL_TOTAL;
-  metricsState.latencySum += 6;
-  for (let i = 0; i < metricsState.latencyBuckets.length; i += 1) {
-    metricsState.latencyBuckets[i] += PER_INTERVAL_CUM[i];
+  metricsState.requests.produce += Math.round(4000 + 1500 * Math.sin(t / 4));
+  metricsState.requests.fetch += Math.round(2600 + 900 * Math.sin(t / 4 + 0.8));
+  metricsState.messages.produce += Math.round(84_000 + 30_000 * Math.sin(t / 4));
+  metricsState.messages.fetch += Math.round(52_000 + 18_000 * Math.sin(t / 4 + 0.8));
+  metricsState.bytes.produce += Math.round(4_200_000 + 1_500_000 * Math.sin(t / 4));
+  metricsState.bytes.fetch += Math.round(2_600_000 + 900_000 * Math.sin(t / 4 + 0.8));
+  metricsState.errors.produce += t % 5 === 0 ? 2 : 0;
+  metricsState.errors.fetch += t % 8 === 0 ? 1 : 0;
+  for (const api of ['produce', 'fetch']) {
+    const interval = api === 'produce' ? PRODUCE_INTERVAL : FETCH_INTERVAL;
+    metricsState.latency[api].count += interval[interval.length - 1];
+    metricsState.latency[api].sum += api === 'produce' ? 6 : 10;
+    for (let i = 0; i < interval.length; i += 1) {
+      metricsState.latency[api].buckets[i] += interval[i];
+    }
   }
-  metricsState.connections = Math.round(120 + 30 * Math.sin(t / 6));
+  metricsState.connections.native = Math.round(120 + 30 * Math.sin(t / 6));
+  metricsState.connections.kafka = Math.round(40 + 12 * Math.sin(t / 6 + 1));
+  metricsState.connections.admin = Math.round(6 + 2 * Math.sin(t / 6));
   metricsState.tick = t + 1;
 }
 
+/** Un counter split por protocolo (native 0.7 / kafka 0.3) para cada api. */
+function counterSamples(name, byApi) {
+  const out = [];
+  for (const api of ['produce', 'fetch']) {
+    const total = byApi[api];
+    const native = Math.round(total * 0.7);
+    out.push({ name, type: 'counter', labels: { api, protocol: 'native' }, value: native });
+    out.push({ name, type: 'counter', labels: { api, protocol: 'kafka' }, value: total - native });
+  }
+  return out;
+}
+
 function metricsSnapshot() {
+  const histograms = ['produce', 'fetch'].map((api) => ({
+    name: 'nexus_broker_request_duration_seconds',
+    type: 'histogram',
+    labels: { api, protocol: 'native' },
+    count: metricsState.latency[api].count,
+    sum: metricsState.latency[api].sum,
+    buckets: LATENCY_LES.map((le, i) => ({ le, cumulativeCount: metricsState.latency[api].buckets[i] })),
+  }));
+  const connections = Object.entries(metricsState.connections).map(([plane, value]) => ({
+    name: 'nexus_broker_connections_active',
+    type: 'gauge',
+    labels: { plane },
+    value,
+  }));
   return {
     metrics: [
-      {
-        name: 'nexusmq_messages_in_total',
-        type: 'counter',
-        labels: {},
-        value: metricsState.messagesIn,
-      },
-      {
-        name: 'nexusmq_messages_out_total',
-        type: 'counter',
-        labels: {},
-        value: metricsState.messagesOut,
-      },
-      {
-        name: 'nexusmq_connections_active',
-        type: 'gauge',
-        labels: {},
-        value: metricsState.connections,
-      },
-      {
-        name: 'nexusmq_produce_latency_seconds',
-        type: 'histogram',
-        labels: {},
-        count: metricsState.latencyCount,
-        sum: metricsState.latencySum,
-        buckets: LATENCY_LES.map((le, i) => ({
-          le,
-          cumulativeCount: metricsState.latencyBuckets[i],
-        })),
-      },
+      ...counterSamples('nexus_broker_requests_total', metricsState.requests),
+      ...counterSamples('nexus_broker_messages_total', metricsState.messages),
+      ...counterSamples('nexus_broker_request_bytes_total', metricsState.bytes),
+      ...counterSamples('nexus_broker_request_errors_total', metricsState.errors),
+      ...histograms,
+      ...connections,
     ],
   };
 }

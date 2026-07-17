@@ -23,16 +23,19 @@ describe('resolveWindow', () => {
   });
 });
 
-describe('constructores de PromQL', () => {
-  it('throughput agrega y suaviza el counter con la ventana dada', () => {
-    expect(throughputQuery('nexusmq_messages_in_total', '2m')).toBe(
-      'sum(rate(nexusmq_messages_in_total[2m]))',
+describe('constructores de PromQL (nombres reales del broker, filtrados por api)', () => {
+  it('throughput agrega y suaviza requests_total filtrado por api', () => {
+    expect(throughputQuery('produce', '2m')).toBe(
+      'sum(rate(nexus_broker_requests_total{api="produce"}[2m]))',
+    );
+    expect(throughputQuery('fetch', '2m')).toBe(
+      'sum(rate(nexus_broker_requests_total{api="fetch"}[2m]))',
     );
   });
 
-  it('cuantil de latencia usa histogram_quantile sobre el bucket agregado por le', () => {
+  it('cuantil de latencia usa histogram_quantile del bucket de produce agregado por le', () => {
     expect(latencyQuantileQuery(0.99, '5m')).toBe(
-      'histogram_quantile(0.99, sum(rate(nexusmq_produce_latency_seconds_bucket[5m])) by (le))',
+      'histogram_quantile(0.99, sum(rate(nexus_broker_request_duration_seconds_bucket{api="produce"}[5m])) by (le))',
     );
   });
 });

@@ -36,7 +36,7 @@ test('dibuja series temporales de throughput y latencias desde Prometheus vía B
   expect(await history.locator('canvas').count()).toBeGreaterThanOrEqual(2);
 
   // La leyenda de uPlot nombra las series (identidad, no solo color).
-  await expect(history.getByText('Entrada', { exact: true })).toBeVisible();
+  await expect(history.getByText('Produce', { exact: true })).toBeVisible();
   await expect(history.getByText('p99', { exact: true })).toBeVisible();
 
   // Cambiar la ventana temporal re-consulta y mantiene las gráficas.

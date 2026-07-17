@@ -20,14 +20,15 @@ function durationToSeconds(raw) {
   return match[2] === 's' ? n : match[2] === 'm' ? n * 60 : n * 3600;
 }
 
-/** Valor determinista para una serie, según la query y el índice de muestra. */
+/**
+ * Valor determinista para una serie, según la query y el índice de muestra. Las
+ * queries usan los nombres REALES del broker: throughput
+ * `sum(rate(nexus_broker_requests_total{api="…"}[w]))` y latencias
+ * `histogram_quantile(q, sum(rate(nexus_broker_request_duration_seconds_bucket{api="produce"}[w])) by (le))`.
+ * Los cuantiles se comprueban ANTES que `api="produce"` (la query de latencia
+ * también filtra por produce).
+ */
 function sampleFor(query, i) {
-  if (query.includes('messages_in')) {
-    return 3500 + 800 * Math.sin(i / 6);
-  }
-  if (query.includes('messages_out')) {
-    return 2800 + 600 * Math.sin(i / 6 + 0.6);
-  }
   if (query.includes('0.999')) {
     return 0.24 + 0.03 * Math.sin(i / 5);
   }
@@ -36,6 +37,12 @@ function sampleFor(query, i) {
   }
   if (query.includes('0.5')) {
     return 0.0035 + 0.0008 * Math.sin(i / 5);
+  }
+  if (query.includes('api="produce"')) {
+    return 3500 + 800 * Math.sin(i / 6);
+  }
+  if (query.includes('api="fetch"')) {
+    return 2600 + 600 * Math.sin(i / 6 + 0.6);
   }
   return 1;
 }

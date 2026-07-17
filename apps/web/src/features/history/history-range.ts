@@ -44,21 +44,30 @@ export function resolveWindow(preset: RangePreset, nowMs: number): HistoryWindow
   return { startS, endS, step: preset.step, window: preset.window };
 }
 
-/** Métricas Prometheus que expone el broker y consumen las vistas de historia. */
+/**
+ * Métricas Prometheus **REALES** del broker que consumen las vistas de historia.
+ * Fuente de verdad de los nombres: `docs/metrics.md` del broker (repo hermano
+ * `../NexusMQ`). Las familias del plano de datos llevan `{api,protocol}`; la
+ * historia consulta por `api` (produce/fetch) igual que el dashboard en vivo.
+ *
+ * @see ../../../../../NexusMQ/docs/metrics.md — catálogo de métricas del broker.
+ */
 export const HISTORY_METRIC = {
-  messagesIn: 'nexusmq_messages_in_total',
-  messagesOut: 'nexusmq_messages_out_total',
-  latencyBucket: 'nexusmq_produce_latency_seconds_bucket',
+  requests: 'nexus_broker_requests_total',
+  requestDurationBucket: 'nexus_broker_request_duration_seconds_bucket',
 } as const;
 
-/** PromQL de throughput (mensajes/s) de un counter, agregado y suavizado. */
-export function throughputQuery(metric: string, window: string): string {
-  return `sum(rate(${metric}[${window}]))`;
+/** PromQL de throughput (peticiones/s) filtrado por `api`, agregado y suavizado. */
+export function throughputQuery(api: string, window: string): string {
+  return `sum(rate(${HISTORY_METRIC.requests}{api="${api}"}[${window}]))`;
 }
 
-/** PromQL de un cuantil de latencia (segundos) sobre el histograma del intervalo. */
+/**
+ * PromQL de un cuantil de latencia (segundos) de `produce` sobre el histograma del
+ * intervalo (`histogram_quantile` de los cubos por `le`).
+ */
 export function latencyQuantileQuery(quantile: number, window: string): string {
-  return `histogram_quantile(${quantile}, sum(rate(${HISTORY_METRIC.latencyBucket}[${window}])) by (le))`;
+  return `histogram_quantile(${quantile}, sum(rate(${HISTORY_METRIC.requestDurationBucket}{api="produce"}[${window}])) by (le))`;
 }
 
 /** Una serie de la respuesta `matrix` de Prometheus. */

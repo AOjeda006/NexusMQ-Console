@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { Card } from '@/components/ui/card';
 import { ClusterRaftPanel } from '@/features/dashboard/cluster-raft-panel';
-import { compact, integer, millis } from '@/features/dashboard/format';
+import { bytesRate, compact, integer, millis, percent } from '@/features/dashboard/format';
 import { LatencyChart } from '@/features/dashboard/latency-chart';
 import { LiveBadge } from '@/features/dashboard/live-badge';
 import { StatTile } from '@/features/dashboard/stat-tile';
@@ -28,6 +28,16 @@ export function DashboardPage(): ReactNode {
   const current = metrics.current;
   const health = clusterQuery.data ? summarizeCluster(clusterQuery.data) : null;
 
+  const totalReqPerSec =
+    current === null || (current.produceReqPerSec === null && current.fetchReqPerSec === null)
+      ? null
+      : (current.produceReqPerSec ?? 0) + (current.fetchReqPerSec ?? 0);
+  const errorRatio =
+    current?.errorPerSec != null && totalReqPerSec !== null && totalReqPerSec > 0
+      ? current.errorPerSec / totalReqPerSec
+      : null;
+  const hasErrors = current?.errorPerSec != null && current.errorPerSec > 0;
+
   return (
     <div
       className="space-y-4"
@@ -44,21 +54,22 @@ export function DashboardPage(): ReactNode {
         <LiveBadge status={metrics.status} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatTile
-          label="Entrada"
-          value={compact(current?.msgInPerSec ?? null, 1)}
-          unit="msg/s"
+          label="Produce"
+          value={compact(current?.produceReqPerSec ?? null, 1)}
+          unit="req/s"
           mark={<SeriesDot className="bg-series-1" />}
-          sub={<span>Conexiones activas: {integer(metrics.connections)}</span>}
-          testId="kpi-in"
+          sub={<RateSub msgPerSec={current?.produceMsgPerSec} bytesPerSec={current?.produceBytesPerSec} />}
+          testId="kpi-produce"
         />
         <StatTile
-          label="Salida"
-          value={compact(current?.msgOutPerSec ?? null, 1)}
-          unit="msg/s"
+          label="Fetch"
+          value={compact(current?.fetchReqPerSec ?? null, 1)}
+          unit="req/s"
           mark={<SeriesDot className="bg-series-2" />}
-          testId="kpi-out"
+          sub={<RateSub msgPerSec={current?.fetchMsgPerSec} bytesPerSec={current?.fetchBytesPerSec} />}
+          testId="kpi-fetch"
         />
         <StatTile
           label="Latencia p99"
@@ -69,6 +80,20 @@ export function DashboardPage(): ReactNode {
             </span>
           }
           testId="kpi-p99"
+        />
+        <StatTile
+          label="Tasa de error"
+          value={compact(current?.errorPerSec ?? null, 1)}
+          unit="err/s"
+          mark={
+            hasErrors ? (
+              <TriangleAlert aria-hidden className="size-3.5 text-warning" />
+            ) : (
+              <CheckCircle2 aria-hidden className="size-3.5 text-success" />
+            )
+          }
+          sub={<span>{errorRatio === null ? '— de peticiones' : `${percent(errorRatio)} de peticiones`}</span>}
+          testId="kpi-errors"
         />
         <StatTile
           label="Clúster"
@@ -86,16 +111,31 @@ export function DashboardPage(): ReactNode {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <ChartCard title="Throughput (mensajes/s)">
+        <ChartCard title="Throughput (peticiones/s)">
           <ThroughputChart history={metrics.history} />
         </ChartCard>
-        <ChartCard title="Latencia de publicación (p50 · p99 · p999)">
+        <ChartCard title="Latencia de servicio (p50 · p99 · p999)">
           <LatencyChart history={metrics.history} />
         </ChartCard>
       </div>
 
       <ClusterRaftPanel query={clusterQuery} />
     </div>
+  );
+}
+
+/** Línea de apoyo de un tile de throughput: mensajes/s y bytes/s (cada uno degrada «—»). */
+function RateSub({
+  msgPerSec,
+  bytesPerSec,
+}: {
+  readonly msgPerSec: number | null | undefined;
+  readonly bytesPerSec: number | null | undefined;
+}): ReactNode {
+  return (
+    <span>
+      {compact(msgPerSec ?? null, 1)} msg/s · {bytesRate(bytesPerSec ?? null)}
+    </span>
   );
 }
 

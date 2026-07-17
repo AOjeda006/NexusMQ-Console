@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type LiveSource, type LiveStatus, useLiveStream } from '@/features/live/use-live-stream';
 
 import {
+  API,
   deltaHistogram,
   findCounter,
   findGauge,
@@ -13,12 +14,26 @@ import {
   toMillis,
 } from './metrics-snapshot';
 
-/** Muestra derivada de un frame: tasas (por diferencia) y cuantiles de latencia. */
+/**
+ * Muestra derivada de un frame del broker: tasas por `api` (por diferencia de
+ * counters) y cuantiles de latencia de `produce`. Los nombres/labels son los
+ * REALES del broker (`nexus_broker_*` con `{api}`); las series que el broker aún
+ * no emita quedan `null` (degradan a «—» en la UI).
+ */
 export interface MetricsSample {
   readonly tMs: number;
-  /** Mensajes de entrada por segundo (por diferencia del counter). */
-  readonly msgInPerSec: number | null;
-  readonly msgOutPerSec: number | null;
+  /** Peticiones/s de `produce` (delta del counter `requests_total{api=produce}`). */
+  readonly produceReqPerSec: number | null;
+  readonly fetchReqPerSec: number | null;
+  /** Records (mensajes)/s por `api` (degrada si el broker no emite `messages_total`). */
+  readonly produceMsgPerSec: number | null;
+  readonly fetchMsgPerSec: number | null;
+  /** Bytes de payload/s por `api`. */
+  readonly produceBytesPerSec: number | null;
+  readonly fetchBytesPerSec: number | null;
+  /** Errores de wire/s (todas las `api`). */
+  readonly errorPerSec: number | null;
+  /** Latencia de servicio de `produce` (ms), del histograma del intervalo. */
   readonly p50Ms: number | null;
   readonly p99Ms: number | null;
   readonly p999Ms: number | null;
@@ -32,7 +47,7 @@ export interface LiveMetricsState {
   readonly current: MetricsSample | null;
   /** Ventana deslizante de muestras para las gráficas en vivo. */
   readonly history: readonly MetricsSample[];
-  /** Conexiones activas (gauge), o `null` si el broker no la expone. */
+  /** Conexiones activas (gauge, sumado por plane), o `null` si el broker no la expone. */
   readonly connections: number | null;
 }
 
@@ -54,29 +69,51 @@ function rate(prev: number | null, curr: number | null, dtSeconds: number): numb
   return (curr - prev) / dtSeconds;
 }
 
+/** Tasa por `api` de un counter entre dos frames (o `null` si la serie no está). */
+function counterRate(
+  prev: PrevFrame,
+  snapshot: MetricsSnapshot,
+  name: string,
+  api: string,
+  dtSeconds: number,
+): number | null {
+  return rate(
+    findCounter(prev.snapshot, name, { api }),
+    findCounter(snapshot, name, { api }),
+    dtSeconds,
+  );
+}
+
 /**
  * Deriva una muestra a partir del frame actual y el anterior. Las tasas salen de
- * la diferencia de counters; los cuantiles de latencia, del histograma **del
- * intervalo** (diferencia de cubos) para reflejar la latencia reciente, con
- * respaldo al histograma acumulado si aún no hay intervalo.
+ * la diferencia de counters **filtrados por label** (`{api}`); los cuantiles de
+ * latencia, del histograma de `produce` **del intervalo** (diferencia de cubos)
+ * para reflejar la latencia reciente, con respaldo al histograma acumulado si aún
+ * no hay intervalo.
  */
 function deriveSample(
   prev: PrevFrame | null,
   snapshot: MetricsSnapshot,
   tMs: number,
 ): MetricsSample {
-  let msgInPerSec: number | null = null;
-  let msgOutPerSec: number | null = null;
+  let produceReqPerSec: number | null = null;
+  let fetchReqPerSec: number | null = null;
+  let produceMsgPerSec: number | null = null;
+  let fetchMsgPerSec: number | null = null;
+  let produceBytesPerSec: number | null = null;
+  let fetchBytesPerSec: number | null = null;
+  let errorPerSec: number | null = null;
   if (prev !== null) {
     const dt = (tMs - prev.tMs) / 1000;
-    msgInPerSec = rate(
-      findCounter(prev.snapshot, METRIC.messagesIn),
-      findCounter(snapshot, METRIC.messagesIn),
-      dt,
-    );
-    msgOutPerSec = rate(
-      findCounter(prev.snapshot, METRIC.messagesOut),
-      findCounter(snapshot, METRIC.messagesOut),
+    produceReqPerSec = counterRate(prev, snapshot, METRIC.requests, API.produce, dt);
+    fetchReqPerSec = counterRate(prev, snapshot, METRIC.requests, API.fetch, dt);
+    produceMsgPerSec = counterRate(prev, snapshot, METRIC.messages, API.produce, dt);
+    fetchMsgPerSec = counterRate(prev, snapshot, METRIC.messages, API.fetch, dt);
+    produceBytesPerSec = counterRate(prev, snapshot, METRIC.requestBytes, API.produce, dt);
+    fetchBytesPerSec = counterRate(prev, snapshot, METRIC.requestBytes, API.fetch, dt);
+    errorPerSec = rate(
+      findCounter(prev.snapshot, METRIC.requestErrors),
+      findCounter(snapshot, METRIC.requestErrors),
       dt,
     );
   }
@@ -84,9 +121,10 @@ function deriveSample(
   let p50Ms: number | null = null;
   let p99Ms: number | null = null;
   let p999Ms: number | null = null;
-  const hist = findHistogram(snapshot, METRIC.produceLatency);
+  const hist = findHistogram(snapshot, METRIC.requestDuration, { api: API.produce });
   if (hist !== null) {
-    const prevHist = prev === null ? null : findHistogram(prev.snapshot, METRIC.produceLatency);
+    const prevHist =
+      prev === null ? null : findHistogram(prev.snapshot, METRIC.requestDuration, { api: API.produce });
     const window = prevHist === null ? null : deltaHistogram(prevHist, hist);
     const source = window ?? hist;
     p50Ms = toMillis(histogramQuantile(source.buckets, source.count, QUANTILES.p50));
@@ -94,17 +132,29 @@ function deriveSample(
     p999Ms = toMillis(histogramQuantile(source.buckets, source.count, QUANTILES.p999));
   }
 
-  return { tMs, msgInPerSec, msgOutPerSec, p50Ms, p99Ms, p999Ms };
+  return {
+    tMs,
+    produceReqPerSec,
+    fetchReqPerSec,
+    produceMsgPerSec,
+    fetchMsgPerSec,
+    produceBytesPerSec,
+    fetchBytesPerSec,
+    errorPerSec,
+    p50Ms,
+    p99Ms,
+    p999Ms,
+  };
 }
 
 /**
  * Suscribe el Dashboard al flujo de métricas del broker (SSE del BFF con
  * **fallback a polling**, vía {@link useLiveStream}) y **deriva** en el cliente
- * lo que el snapshot no trae ya calculado: throughput por segundo (diferencia de
- * counters) y latencias p50/p99/p999 (cuantiles del histograma del intervalo),
- * acumulando una ventana deslizante para las gráficas en vivo. La derivación es
- * pura y está en `metrics-snapshot.ts` (con tests); aquí solo se orquesta el
- * estado por frame.
+ * lo que el snapshot no trae ya calculado: throughput por `api` (diferencia de
+ * counters filtrados por label) y latencias p50/p99/p999 de `produce` (cuantiles
+ * del histograma del intervalo), acumulando una ventana deslizante para las
+ * gráficas en vivo. La derivación es pura y está en `metrics-snapshot.ts` (con
+ * tests); aquí solo se orquesta el estado por frame.
  */
 export function useLiveMetrics(): LiveMetricsState {
   const parse = useCallback(
@@ -126,6 +176,7 @@ export function useLiveMetrics(): LiveMetricsState {
     }
     const sample = deriveSample(prevRef.current, snapshot, tMs);
     prevRef.current = { snapshot, tMs };
+    // Gauge sumado por plane (native+kafka+admin); «—» hasta que el broker lo emita.
     setConnections(findGauge(snapshot, METRIC.connections));
     setHistory((prev) => {
       const next = [...prev, sample];

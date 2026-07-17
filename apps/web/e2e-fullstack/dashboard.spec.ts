@@ -38,15 +38,24 @@ test('el Dashboard muestra métricas en vivo, gráficas y estado Raft del broker
     .poll(async () => Number(await dashboard.getAttribute('data-samples')), { timeout: 2000 })
     .toBeGreaterThan(samples0);
 
-  // 3) KPIs con datos reales: latencia p99 en ms y salud del clúster (3 nodos).
+  // 3) KPIs con datos reales del broker (nexus_broker_*, filtrados por api):
+  //    throughput produce/fetch en req/s (F5.2: dejan de mostrar «—»), latencia
+  //    p99 en ms y salud del clúster (3 nodos).
+  const produceKpi = page.getByTestId('kpi-produce');
+  const fetchKpi = page.getByTestId('kpi-fetch');
+  await expect(produceKpi).toContainText('req/s');
+  await expect(fetchKpi).toContainText('req/s');
+  await expect
+    .poll(async () => (await produceKpi.innerText()).includes('—'), { timeout: 2000 })
+    .toBe(false);
   await expect(page.getByTestId('kpi-p99')).toContainText('ms');
   const clusterKpi = page.getByTestId('kpi-cluster');
   await expect(clusterKpi).toContainText('3');
   await expect(clusterKpi).toContainText('Saludable');
 
   // 4) Las dos gráficas de alta frecuencia (uPlot) se dibujan en <canvas>.
-  await expect(page.getByRole('heading', { name: 'Throughput (mensajes/s)' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /Latencia de publicación/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Throughput (peticiones/s)' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Latencia de servicio/ })).toBeVisible();
   expect(await page.locator('canvas').count()).toBeGreaterThanOrEqual(2);
 
   // 5) Estado Raft real: nodo local + una partición liderada del broker.

@@ -16,39 +16,91 @@ export interface HistogramView {
 }
 
 /**
- * Nombres de métrica que consume el Dashboard. El `MetricsSnapshot` del contrato
- * es una lista **abierta** de series (`name` libre, estilo Prometheus): el
- * contrato no fija los nombres, así que la consola los asume aquí, en un único
- * sitio, y **degrada con honestidad** (muestra «—») si una serie no está
- * presente. Convención `nexusmq_*` alineada con la exposición Prometheus del
- * broker (`GET /metrics`).
+ * Selector de etiquetas: subconjunto `{clave: valor}` que una serie debe cumplir
+ * (todas las claves del selector deben coincidir con las de la muestra). Un
+ * selector vacío/ausente casa con cualquier serie. Es el equivalente al
+ * `{api="produce"}` de PromQL: el `MetricsSnapshot` es una lista **abierta** de
+ * series con `labels`, y el broker desglosa cada familia por `{api,protocol}` (o
+ * `{plane}`), así que hay que **filtrar por label**, no sumar/elegir a ciegas.
+ */
+export type LabelSelector = Readonly<Record<string, string>>;
+
+/**
+ * Nombres de métrica REALES del broker que consume el Dashboard. Fuente de verdad
+ * de los nombres: `docs/metrics.md` del broker (repo hermano `../NexusMQ`); el
+ * OpenAPI fija la **forma** del snapshot (lista abierta de `MetricSample`), no los
+ * nombres. Todas las familias del plano de datos llevan las etiquetas
+ * `{api: produce|fetch, protocol: native|kafka}`; `connections_active` lleva
+ * `{plane: native|kafka|admin}`. Se **degrada con honestidad** (muestra «—») si
+ * una serie no está presente (p. ej. `messages_total`/`connections_active` hasta
+ * que el broker las emita).
+ *
+ * @see ../../../../../NexusMQ/docs/metrics.md — catálogo de métricas del broker.
  */
 export const METRIC = {
-  messagesIn: 'nexusmq_messages_in_total',
-  messagesOut: 'nexusmq_messages_out_total',
-  produceLatency: 'nexusmq_produce_latency_seconds',
-  connections: 'nexusmq_connections_active',
+  /** counter — peticiones del plano de datos servidas, por `{api,protocol}`. */
+  requests: 'nexus_broker_requests_total',
+  /** counter — peticiones con error de wire, por `{api,protocol}`. */
+  requestErrors: 'nexus_broker_request_errors_total',
+  /** counter — bytes de payload del plano de datos, por `{api,protocol}`. */
+  requestBytes: 'nexus_broker_request_bytes_total',
+  /** counter — records (mensajes) del plano de datos, por `{api,protocol}`. */
+  messages: 'nexus_broker_messages_total',
+  /** histogram — latencia de servicio (segundos), por `{api,protocol}`. */
+  requestDuration: 'nexus_broker_request_duration_seconds',
+  /** gauge — conexiones de cliente activas, por `{plane}`. */
+  connections: 'nexus_broker_connections_active',
 } as const;
 
-/** Suma el `value` de todas las series `counter` con ese nombre (o `null` si no hay ninguna). */
-export function findCounter(snapshot: MetricsSnapshot, name: string): number | null {
-  return sumValues(snapshot, name, 'counter');
+/** Valores de la etiqueta `api` del plano de datos. */
+export const API = { produce: 'produce', fetch: 'fetch' } as const;
+
+/** ¿La muestra cumple el selector de etiquetas? (todas las claves deben coincidir). */
+function matchesSelector(sample: MetricSample, selector: LabelSelector | undefined): boolean {
+  if (selector === undefined) {
+    return true;
+  }
+  for (const key of Object.keys(selector)) {
+    if (sample.labels[key] !== selector[key]) {
+      return false;
+    }
+  }
+  return true;
 }
 
-/** Suma el `value` de todas las series `gauge` con ese nombre (o `null` si no hay ninguna). */
-export function findGauge(snapshot: MetricsSnapshot, name: string): number | null {
-  return sumValues(snapshot, name, 'gauge');
+/** Suma el `value` de las series `counter` con ese nombre que casen el selector (o `null`). */
+export function findCounter(
+  snapshot: MetricsSnapshot,
+  name: string,
+  selector?: LabelSelector,
+): number | null {
+  return sumValues(snapshot, name, 'counter', selector);
+}
+
+/** Suma el `value` de las series `gauge` con ese nombre que casen el selector (o `null`). */
+export function findGauge(
+  snapshot: MetricsSnapshot,
+  name: string,
+  selector?: LabelSelector,
+): number | null {
+  return sumValues(snapshot, name, 'gauge', selector);
 }
 
 function sumValues(
   snapshot: MetricsSnapshot,
   name: string,
   type: MetricSample['type'],
+  selector: LabelSelector | undefined,
 ): number | null {
   let total = 0;
   let found = false;
   for (const sample of snapshot.metrics) {
-    if (sample.name === name && sample.type === type && typeof sample.value === 'number') {
+    if (
+      sample.name === name &&
+      sample.type === type &&
+      matchesSelector(sample, selector) &&
+      typeof sample.value === 'number'
+    ) {
       total += sample.value;
       found = true;
     }
@@ -57,18 +109,43 @@ function sumValues(
 }
 
 /**
- * Primer histograma con ese nombre, normalizado a {@link HistogramView} con los
- * cubos ordenados por `le` ascendente. `null` si no existe o le faltan cubos.
+ * Histograma **agregado** de todas las series con ese nombre que casen el selector
+ * (p. ej. `produce` sobre los protocolos `native`+`kafka`), normalizado a
+ * {@link HistogramView} con los cubos sumados por `le` y ordenados ascendente. Es
+ * el equivalente cliente de `sum(...) by (le)`: sumar cubos acumulativos serie a
+ * serie da la distribución acumulada agregada. `null` si no hay ninguna serie.
  */
-export function findHistogram(snapshot: MetricsSnapshot, name: string): HistogramView | null {
-  const sample = snapshot.metrics.find((m) => m.name === name && m.type === 'histogram');
-  if (sample === undefined || sample.buckets === undefined) {
+export function findHistogram(
+  snapshot: MetricsSnapshot,
+  name: string,
+  selector?: LabelSelector,
+): HistogramView | null {
+  const cumulativeByLe = new Map<number, number>();
+  let count = 0;
+  let sum = 0;
+  let found = false;
+  for (const sample of snapshot.metrics) {
+    if (
+      sample.name === name &&
+      sample.type === 'histogram' &&
+      sample.buckets !== undefined &&
+      matchesSelector(sample, selector)
+    ) {
+      found = true;
+      count += sample.count ?? 0;
+      sum += sample.sum ?? 0;
+      for (const bucket of sample.buckets) {
+        cumulativeByLe.set(bucket.le, (cumulativeByLe.get(bucket.le) ?? 0) + bucket.cumulativeCount);
+      }
+    }
+  }
+  if (!found) {
     return null;
   }
-  const buckets = sample.buckets
-    .map((b) => ({ le: b.le, cumulativeCount: b.cumulativeCount }))
+  const buckets = [...cumulativeByLe.entries()]
+    .map(([le, cumulativeCount]) => ({ le, cumulativeCount }))
     .sort((a, b) => a.le - b.le);
-  return { count: sample.count ?? 0, sum: sample.sum ?? 0, buckets };
+  return { count, sum, buckets };
 }
 
 /**

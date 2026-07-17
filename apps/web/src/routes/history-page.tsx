@@ -8,7 +8,6 @@ import { HistoryChart } from '@/features/history/history-chart';
 import {
   alignSeries,
   hasData,
-  HISTORY_METRIC,
   latencyQuantileQuery,
   RANGE_PRESETS,
   type RangePreset,
@@ -20,7 +19,7 @@ import { type RangeSpec, useHistorySeries } from '@/features/history/use-history
 import { useHistoryStatus } from '@/features/settings/use-history-status';
 import { problemFrom } from '@/lib/problem';
 
-const THROUGHPUT_LABELS = ['Entrada', 'Salida'] as const;
+const THROUGHPUT_LABELS = ['Produce', 'Fetch'] as const;
 const LATENCY_LABELS = ['p50', 'p99', 'p999'] as const;
 
 /**
@@ -39,8 +38,8 @@ export function HistoryPage(): ReactNode {
 
   const window = resolveWindow(range.preset, range.nowMs);
   const specs: readonly RangeSpec[] = [
-    { id: 'in', query: throughputQuery(HISTORY_METRIC.messagesIn, window.window) },
-    { id: 'out', query: throughputQuery(HISTORY_METRIC.messagesOut, window.window) },
+    { id: 'produce', query: throughputQuery('produce', window.window) },
+    { id: 'fetch', query: throughputQuery('fetch', window.window) },
     { id: 'p50', query: latencyQuantileQuery(0.5, window.window) },
     { id: 'p99', query: latencyQuantileQuery(0.99, window.window) },
     { id: 'p999', query: latencyQuantileQuery(0.999, window.window) },
@@ -50,8 +49,8 @@ export function HistoryPage(): ReactNode {
   const series = useHistorySeries(specs, window, { enabled: available });
 
   const throughput = alignSeries([
-    { points: series.byId.get('in') ?? [], scale: 1 },
-    { points: series.byId.get('out') ?? [], scale: 1 },
+    { points: series.byId.get('produce') ?? [], scale: 1 },
+    { points: series.byId.get('fetch') ?? [], scale: 1 },
   ]);
   const latency = alignSeries([
     { points: series.byId.get('p50') ?? [], scale: 1000 },
@@ -79,17 +78,17 @@ export function HistoryPage(): ReactNode {
           />
           {series.isError && <ProblemAlert problem={problemFrom(series.error)} />}
           <div className="grid gap-4 xl:grid-cols-2">
-            <ChartCard title="Throughput (mensajes/s)" data={throughput} loading={series.isLoading}>
+            <ChartCard title="Throughput (peticiones/s)" data={throughput} loading={series.isLoading}>
               <HistoryChart
                 data={throughput}
                 labels={THROUGHPUT_LABELS}
                 unit="count"
                 fill
-                ariaLabel="Throughput histórico: mensajes por segundo de entrada y salida"
+                ariaLabel="Throughput histórico: peticiones por segundo de produce y fetch"
               />
             </ChartCard>
             <ChartCard
-              title="Latencia de publicación (p50 · p99 · p999)"
+              title="Latencia de servicio (p50 · p99 · p999)"
               data={latency}
               loading={series.isLoading}
             >
