@@ -17,7 +17,18 @@
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "passThroughEnv": [
+        "BROKER_ADMIN_URL",
+        "SESSION_SECRET",
+        "PROMETHEUS_URL",
+        "PORT",
+        "NODE_ENV",
+        "WEB_DIST_PATH",
+        "BROKER_TLS_REJECT_UNAUTHORIZED",
+        "NODE_EXTRA_CA_CERTS",
+        "CONSOLE_REQUIRE_LOGIN"
+      ]
     }
   }
 }

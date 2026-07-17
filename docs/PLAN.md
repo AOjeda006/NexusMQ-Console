@@ -611,11 +611,14 @@ v1 COMPLETA** (Fases 0–4). Repo verde en todo el monorepo: typecheck/lint/buil
 > dobles de test emitían nombres ficticios (por eso los e2e pasaban sobre un contrato equivocado).
 > Fuente de verdad de nombres: `docs/metrics.md` del broker (`../NexusMQ`). Un ítem a la vez, TDD.
 
-- [ ] **F5.1 Arreglar `pnpm dev`** — turbo 2.x usa env-mode strict; la tarea `dev` no declara env y
-  filtra `BROKER_ADMIN_URL`/`SESSION_SECRET`… ⇒ el BFF aborta con `ConfigValidationError`. Añadir
-  `passThroughEnv`/`globalPassThroughEnv` (BROKER_ADMIN_URL, SESSION_SECRET, PROMETHEUS_URL, PORT,
-  NODE_ENV, WEB_DIST_PATH, BROKER_TLS_REJECT_UNAUTHORIZED, NODE_EXTRA_CA_CERTS, CONSOLE_REQUIRE_LOGIN).
-  *AC:* el flujo del README (`export … ; pnpm dev`) arranca el BFF; README alineado.
+- [x] **F5.1 Arreglar `pnpm dev`** — turbo 2.x usa env-mode strict; la tarea `dev` no declaraba env y
+  filtraba `BROKER_ADMIN_URL`/`SESSION_SECRET`… ⇒ el BFF abortaba con `ConfigValidationError`. Añadido
+  `passThroughEnv` a la tarea `dev` (BROKER_ADMIN_URL, SESSION_SECRET, PROMETHEUS_URL, PORT, NODE_ENV,
+  WEB_DIST_PATH, BROKER_TLS_REJECT_UNAUTHORIZED, NODE_EXTRA_CA_CERTS, CONSOLE_REQUIRE_LOGIN).
+  ✔ Verificado: `export BROKER_ADMIN_URL … SESSION_SECRET … ; turbo run dev` arranca el BFF — todos
+  los módulos inicializan y «Nest application successfully started» (config válida ⇒ el env atravesó el
+  env-mode strict; antes fallaba en la init de `ConfigModule`). El flujo del README ya funciona sin
+  cambios de comandos. `passThroughEnv` no afecta al hash ni a build/test/typecheck.
 - [ ] **F5.2 Remapear Dashboard + Historia a métricas reales, con filtrado por label** — hoy
   `sumValues`/`findHistogram` ignoran los labels y suman/eligen a ciegas. Generalizar para aceptar un
   selector de labels (`{api:'produce'}`). Mapeo: throughput = `nexus_broker_requests_total` (delta por
