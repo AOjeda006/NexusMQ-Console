@@ -1,0 +1,18 @@
+# Config de EJEMPLO de Prometheus para el docker-compose de la consola.
+# Raspa las métricas del broker NexusMQ; la consola las consulta vía el BFF
+# (query_range) para las vistas de Historia (F4.1).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: nexusmq-broker
+    metrics_path: /metrics
+    static_configs:
+      # Puerto de métricas del broker en la red compose (ajústalo al real).
+      - targets: ['broker:9091']
+
+  # Opcional: Prometheus se raspa a sí mismo (útil para validar el despliegue).
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

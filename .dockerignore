@@ -1,0 +1,30 @@
+# No enviar al contexto de build lo que se reconstruye o no hace falta.
+# Los node_modules del host (symlinks de pnpm) romperían la instalación dentro
+# de la imagen: se instalan limpios en la etapa `builder`.
+**/node_modules
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+
+# Artefactos de test / e2e.
+**/coverage
+**/test-results
+**/playwright-report
+**/.playwright
+
+# Control de versiones, CI y utillería del editor/agente.
+.git
+.github
+.vscode
+.claude
+.idea
+
+# Docs y ficheros que no intervienen en el build (README aparte, para la imagen no hace falta).
+docs
+*.md
+*.log
+
+# Entornos locales (los secretos van por variables de entorno en el despliegue).
+.env
+.env.*
+!.env.example

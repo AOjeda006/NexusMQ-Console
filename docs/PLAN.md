@@ -216,7 +216,17 @@ testeado (ventana/PromQL/parseo/alineado, 9 tests). **Degradación limpia** con 
 hay Prometheus. **Verificado en navegador full-stack** con un **doble de Prometheus** añadido al
 arnés e2e (BFF con `PROMETHEUS_URL`): gráficas con datos reales + modo degradado. Repo verde:
 typecheck/lint/build/test (contract 1 + BFF 51 + web **19**) + e2e shell/viz (7) + e2e full-stack
-(**14**). **Siguiente: F4.2 — Docker (multi-stage, no-root, HEALTHCHECK) + docker-compose.**
+(**14**).
+
+**F4.2 COMPLETA**: empaquetado en contenedor. **Dockerfile multi-stage** (builder compila SPA+BFF;
+runtime mínimo no-root con `HEALTHCHECK` propio y solo el artefacto, vía `pnpm deploy --prod`
+aislado), **`.dockerignore`**, **`docker-compose.yml`** de ejemplo (console + broker[placeholder] +
+prometheus con healthchecks/`depends_on`/red/volumen), **`deploy/prometheus.yml`** y **`.env.example`**;
+secretos por entorno. **Docker no está instalado en este entorno**: se verificó el runtime de la
+imagen **sin el demonio** (deploy `--prod` correcto; `node dist/main.js` sirve la SPA + `/health` +
+deep links; comando del HEALTHCHECK con exit 0/1; YAML de compose y Prometheus válido). Queda
+ejecutar `docker compose up` en una máquina con Docker (README de despliegue en F4.3).
+**Siguiente: F4.3 — Hardening (cabeceras, CORS mismo-origen, validación) + README de despliegue.**
 
 ---
 
@@ -513,9 +523,28 @@ typecheck/lint/build/test (contract 1 + BFF 51 + web **19**) + e2e shell/viz (7)
   cambiar de ventana re-consulta, y el modo degradado (forzando `status.available=false`) muestra el
   aviso sin gráficas. Capturas revisadas. Repo verde: typecheck/lint/build/test (contract 1 + BFF 51
   + web **19**) + e2e shell/viz (7) + e2e full-stack (**14**).
-- [ ] **F4.2 Docker** — Dockerfile multi-stage (build SPA + runtime BFF), usuario no-root,
+- [x] **F4.2 Docker** — Dockerfile multi-stage (build SPA + runtime BFF), usuario no-root,
   `HEALTHCHECK`; `docker-compose` de ejemplo (console + broker + prometheus). *AC:* `docker compose
   up` levanta la consola apuntando al broker.
+  ✔ **Dockerfile multi-stage**: etapa `builder` (node:22-slim, pnpm vía corepack) que instala con
+  lockfile congelado —manifiestos primero para cachear deps—, genera el contrato y compila SPA (Vite)
+  + BFF (tsc), y luego `pnpm --filter @nexusmq/bff --legacy deploy --prod /out` para un **node_modules
+  de producción aislado** (sin devDeps ni `@nexusmq/contract`, que es type-only). Etapa `runtime`
+  mínima que copia solo el artefacto (node_modules prod + `dist` del BFF + build de la SPA), corre como
+  **usuario no-root** (`node`, uid 1000), declara **`HEALTHCHECK`** propio (fetch nativo a `/health`,
+  sin curl) y `CMD node dist/main.js`. **`.dockerignore`** (excluye node_modules/dist/.git/e2e…),
+  **secretos por entorno** (nunca horneados; `SESSION_SECRET` requerido). **`docker-compose.yml`** de
+  ejemplo (console + broker[placeholder] + prometheus) con healthchecks, `depends_on`, red interna,
+  volumen de Prometheus y `deploy/prometheus.yml` de scrape; `.env.example` documentado.
+  **Verificación** (Docker **no está instalado** en este entorno, así que `docker compose up` no se
+  pudo ejecutar aquí; se reprodujo el runtime de la imagen sin el demonio): `pnpm --legacy deploy
+  --prod` produce el bundle correcto (deps de runtime exactas, contrato ausente); arrancar `node
+  dist/main.js` con el env de producción **sirve la SPA** (`/`, `<title>`, assets), el **deep link**
+  `/history` (fallback SPA → 200), `/health` (`{status:ok}`) y `/api/history/status`; el **comando
+  del HEALTHCHECK** devuelve exit 0 sano / exit 1 caído; el YAML de compose y de Prometheus valida.
+  **Limitación documentada:** falta ejecutar `docker build`/`docker compose up` en una máquina con
+  Docker (el README de despliegue lo cubre en F4.3); la imagen del broker es un placeholder (se
+  entrega aparte).
 - [ ] **F4.3 Hardening + docs** — cabeceras de seguridad, CORS mismo-origen, validación repasada;
   `README` de despliegue. *AC:* revisión de seguridad de la §8 del plan pasada; README completo.
 

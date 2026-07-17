@@ -1,0 +1,74 @@
+# =============================================================================
+# NexusMQ Console — docker-compose de EJEMPLO (console + broker + prometheus).
+#
+# Levanta la consola apuntando a un broker NexusMQ y a Prometheus. La consola y
+# Prometheus son reales; el **broker es un placeholder** (sustituye `image:` por
+# la imagen real del broker NexusMQ, que se entrega aparte).
+#
+# Uso:
+#   export SESSION_SECRET="$(openssl rand -hex 32)"   # ≥32 chars, por entorno
+#   docker compose up --build
+#   → consola en http://localhost:3000
+# =============================================================================
+name: nexusmq-console
+
+services:
+  console:
+    build: .
+    image: nexusmq-console:1.0.0
+    environment:
+      PORT: "3000"
+      # Plano de operación admin del broker (interno de la red compose).
+      BROKER_ADMIN_URL: "http://broker:8080"
+      # Data source de historia; si se omite, la vista de Historia degrada limpio.
+      PROMETHEUS_URL: "http://prometheus:9090"
+      # Secreto de sesión: SIEMPRE por entorno, nunca horneado. Falla si falta.
+      SESSION_SECRET: "${SESSION_SECRET:?define SESSION_SECRET (>=32 chars)}"
+      # NODE_ENV=production ya viene en la imagen ⇒ la cookie de sesión es
+      # `Secure`: sirve la consola tras TLS (proxy inverso) en producción.
+    ports:
+      - "3000:3000"
+    depends_on:
+      # El broker real debería exponer un healthcheck; entonces sube esto a
+      # `condition: service_healthy`. Con el placeholder basta `service_started`.
+      broker:
+        condition: service_started
+      prometheus:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  broker:
+    # ⚠️ PLACEHOLDER: reemplaza por la imagen real del broker NexusMQ. Debe
+    #    exponer el plano admin REST (aquí :8080) y las métricas Prometheus
+    #    (aquí :9091, ver deploy/prometheus.yml). Ejemplo ilustrativo:
+    image: ghcr.io/nexusmq/broker:1.0.0
+    # command: ["--jwt-secret", "${BROKER_JWT_SECRET:-}"]   # modo secreto (opcional)
+    expose:
+      - "8080"
+      - "9091"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    expose:
+      - "9090"
+    # Descomenta para inspeccionar Prometheus directamente durante el desarrollo:
+    # ports:
+    #   - "9090:9090"
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
