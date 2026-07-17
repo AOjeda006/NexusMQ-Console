@@ -38,6 +38,36 @@ interface RouteContext {
 /** Token que el doble considera **inválido** (para probar el rechazo del login). */
 export const INVALID_TOKEN = 'token-malo';
 
+/**
+ * `MetricsSnapshot` **real** del contrato (una entrada por serie con `name`/`type`/
+ * `labels`), con los nombres REALES del broker (`nexus_broker_*`). El BFF es
+ * passthrough: no interpreta la forma, pero el doble no debe mentir (F5.8).
+ */
+function metricsSnapshot(): unknown {
+  return {
+    metrics: [
+      {
+        name: 'nexus_broker_requests_total',
+        type: 'counter',
+        labels: { api: 'produce', protocol: 'native' },
+        value: 1000,
+      },
+      {
+        name: 'nexus_broker_requests_total',
+        type: 'counter',
+        labels: { api: 'fetch', protocol: 'native' },
+        value: 500,
+      },
+      {
+        name: 'nexus_broker_connections_active',
+        type: 'gauge',
+        labels: { plane: 'admin' },
+        value: 2,
+      },
+    ],
+  };
+}
+
 function extractBearer(req: IncomingMessage): string | undefined {
   const header = req.headers['authorization'];
   if (typeof header !== 'string' || !header.startsWith('Bearer ')) {
@@ -91,10 +121,10 @@ function serveStream(res: ServerResponse, ctx: RouteContext): void {
     connection: 'keep-alive',
   });
 
-  const frame = (seq: number): void => {
-    res.write(`event: metrics\ndata: {"seq":${seq},"generatedAtMs":${Date.now()}}\n\n`);
+  const frame = (): void => {
+    res.write(`event: metrics\ndata: ${JSON.stringify(metricsSnapshot())}\n\n`);
   };
-  frame(1);
+  frame();
 
   if (ctx.streamCloseAfterFirstFrame) {
     res.end();
@@ -106,7 +136,7 @@ function serveStream(res: ServerResponse, ctx: RouteContext): void {
       clearInterval(interval);
       return;
     }
-    frame(Date.now());
+    frame();
   }, 25);
   res.on('close', () => clearInterval(interval));
 }
@@ -126,7 +156,7 @@ async function route(req: IncomingMessage, res: ServerResponse, ctx: RouteContex
     return;
   }
   if (method === 'GET' && path === '/api/v1/metrics/snapshot') {
-    sendJson(res, 200, { generatedAtMs: 1_700_000_000_000, topics: 0, messagesIn: 0 });
+    sendJson(res, 200, metricsSnapshot());
     return;
   }
   if (method === 'GET' && path === '/api/v1/stream') {
@@ -148,7 +178,8 @@ async function route(req: IncomingMessage, res: ServerResponse, ctx: RouteContex
     if (method === 'GET') {
       const page = Number(url.searchParams.get('page') ?? '1');
       const size = Number(url.searchParams.get('size') ?? '20');
-      sendJson(res, 200, { items: [], page, size, total: 0 });
+      // TopicPage del contrato: { page, size, items } (sin `total`).
+      sendJson(res, 200, { page, size, items: [] });
       return;
     }
     if (method === 'POST') {
@@ -204,7 +235,8 @@ async function route(req: IncomingMessage, res: ServerResponse, ctx: RouteContex
   if (path === '/api/v1/groups' && method === 'GET') {
     const page = Number(url.searchParams.get('page') ?? '1');
     const size = Number(url.searchParams.get('size') ?? '20');
-    sendJson(res, 200, { items: [], page, size, total: 0 });
+    // GroupPage del contrato: { page, size, items } (sin `total`).
+    sendJson(res, 200, { page, size, items: [] });
     return;
   }
   if (path.startsWith('/api/v1/groups/') && method === 'GET') {
@@ -213,13 +245,23 @@ async function route(req: IncomingMessage, res: ServerResponse, ctx: RouteContex
       sendProblem(res, 404, 'Grupo no encontrado', `No existe el grupo "${id}".`);
       return;
     }
-    sendJson(res, 200, { id, members: [], partitions: [] });
+    // GroupDescription del contrato: { groupId, state, generation, leaderId, members, offsets }.
+    sendJson(res, 200, {
+      groupId: id,
+      state: 'Stable',
+      generation: 1,
+      leaderId: '',
+      members: [],
+      offsets: [],
+    });
     return;
   }
 
   // --- Cluster ----------------------------------------------------------------
   if (path === '/api/v1/cluster' && method === 'GET') {
-    sendJson(res, 200, { nodeId: 1, nodes: [{ id: 1, address: '127.0.0.1:9644' }], partitions: [] });
+    // ClusterInfo del contrato: { nodeId, nodes:[{nodeId,isSelf}], partitions }.
+    // Single-node RF=1: sin particiones replicadas (no hay consenso Raft que emitir).
+    sendJson(res, 200, { nodeId: 1, nodes: [{ nodeId: 1, isSelf: true }], partitions: [] });
     return;
   }
 

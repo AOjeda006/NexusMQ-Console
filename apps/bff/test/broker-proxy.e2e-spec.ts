@@ -45,11 +45,12 @@ describe('Proxy REST del broker (F1.3)', () => {
       expect(res.body).toMatchObject({ status: 'ready' });
     });
 
-    it('GET /api/v1/metrics/snapshot reexpone el snapshot', async () => {
+    it('GET /api/v1/metrics/snapshot reexpone el snapshot (MetricsSnapshot del contrato)', async () => {
       const res = await request(app.getHttpServer()).get('/api/v1/metrics/snapshot');
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('generatedAtMs');
+      expect(Array.isArray(res.body.metrics)).toBe(true);
+      expect(res.body.metrics[0]).toMatchObject({ name: 'nexus_broker_requests_total', type: 'counter' });
     });
 
     it('GET /api/v1/topics propaga la paginación al broker', async () => {
@@ -110,7 +111,7 @@ describe('Proxy REST del broker (F1.3)', () => {
       const res = await request(app.getHttpServer()).get('/api/v1/groups/analitica');
 
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ id: 'analitica' });
+      expect(res.body).toMatchObject({ groupId: 'analitica' });
     });
 
     it('GET /api/v1/cluster reexpone el estado del clúster', async () => {

@@ -73,3 +73,33 @@ describe('AuthService — TTL y purga de sesiones (F5.4)', () => {
     auth.onModuleDestroy();
   });
 });
+
+describe('AuthService — detección del modo del broker con TTL (F5.8)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('cachea el modo y lo re-sondea pasado el TTL (re-detecta un reinicio del broker)', async () => {
+    const forward = vi.fn().mockResolvedValue({ status: 401, headers: {}, body: '' }); // modo secreto
+    const broker = { forward } as unknown as BrokerService;
+    const config = { sessionSecret: SECRET, sessionTtlMs: 1000 } as unknown as ConfigService;
+    const auth = new AuthService(broker, config);
+
+    expect(await auth.isBrokerAuthRequired()).toBe(true);
+    expect(forward).toHaveBeenCalledTimes(1);
+
+    // Dentro del TTL: usa la cache, no vuelve a sondear.
+    expect(await auth.isBrokerAuthRequired()).toBe(true);
+    expect(forward).toHaveBeenCalledTimes(1);
+
+    // El broker se reinicia en modo abierto; pasado el TTL (60 s) se re-detecta.
+    forward.mockResolvedValue({ status: 200, headers: {}, body: '' });
+    vi.setSystemTime(61_000);
+    expect(await auth.isBrokerAuthRequired()).toBe(false);
+    expect(forward).toHaveBeenCalledTimes(2);
+  });
+});

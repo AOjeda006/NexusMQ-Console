@@ -33,6 +33,9 @@ const PROBE_PATH = '/api/v1/topics';
 /** Cadencia máxima del barrido de sesiones caducadas (acotada por el propio TTL). */
 const SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 
+/** Vigencia de la detección del modo del broker: se re-sondea pasado este tiempo. */
+const MODE_CACHE_TTL_MS = 60 * 1000;
+
 /**
  * Auth con **JWT confinado en servidor** (modelo "el operador pega su token").
  *
@@ -47,8 +50,10 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   /** Almacén de sesiones en memoria (una sola instancia; suficiente para v1). */
   private readonly sessions = new Map<string, OperatorSession>();
 
-  /** Cache del modo del broker: ¿exige auth? Se resuelve por sondeo (lazy). */
+  /** Cache del modo del broker: ¿exige auth? Se resuelve por sondeo (lazy) con TTL. */
   private authRequired: boolean | undefined;
+  /** Momento de la última detección del modo (para caducar la cache). */
+  private authRequiredCheckedAtMs = 0;
 
   /** Temporizador del barrido periódico de sesiones caducadas. */
   private sweepTimer: ReturnType<typeof setInterval> | undefined;
@@ -180,14 +185,17 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   /**
    * ¿El broker exige auth? Se sondea **sin token** una ruta protegida: `401/403`
    * ⇒ modo secreto (auth requerida); `2xx` ⇒ modo abierto. El resultado se
-   * cachea (el modo del broker no cambia en caliente).
+   * **cachea con TTL** ({@link MODE_CACHE_TTL_MS}): así, si el broker se reinicia
+   * en otro modo, la consola lo **re-detecta** sin reiniciar el BFF.
    */
   async isBrokerAuthRequired(): Promise<boolean> {
-    if (this.authRequired !== undefined) {
+    const now = Date.now();
+    if (this.authRequired !== undefined && now - this.authRequiredCheckedAtMs < MODE_CACHE_TTL_MS) {
       return this.authRequired;
     }
     const result = await this.broker.forward({ method: 'GET', path: PROBE_PATH, query: { size: 1 } });
     this.authRequired = result.status === 401 || result.status === 403;
+    this.authRequiredCheckedAtMs = now;
     return this.authRequired;
   }
 
