@@ -1,49 +1,104 @@
 import { createServer } from 'node:http';
 
 /**
- * Doble mínimo del broker NexusMQ para los e2e full-stack (F2.2/F2.4/F3.1).
+ * Doble mínimo del broker NexusMQ para los e2e full-stack (F2.2/F2.4/F3.1/F3.2).
  * Imita el plano de operación lo justo para ejercitar el camino real
  * SPA → BFF → broker. Es determinista y sin dependencias.
  *
- * - `/api/v1/topics` exige Bearer (simula un broker con `--jwt-secret`).
- * - `/api/v1/cluster` (protegido) devuelve un `ClusterInfo` con consenso Raft.
- * - `/api/v1/metrics/snapshot` y `/api/v1/stream` (abiertos) emiten el
- *   **`MetricsSnapshot` del contrato** (lista de series estilo Prometheus:
- *   counters de throughput, histograma de latencia, gauge de conexiones) desde
- *   un **estado compartido** que avanza en un único reloj, así el snapshot
- *   (polling) y el SSE son coherentes y se ven evolucionar.
+ * - `/api/v1/topics` (protegido): **CRUD con estado real** — listar (paginado),
+ *   crear (409 si existe), describir (config + particiones), alterar retención
+ *   (PATCH) y borrar (204). El estado vive en memoria: crear/PATCH/borrar surten
+ *   efecto real en las siguientes lecturas.
+ * - `/api/v1/cluster` (protegido): `ClusterInfo` con consenso Raft vivo.
+ * - `/api/v1/metrics/snapshot` y `/api/v1/stream` (abiertos): `MetricsSnapshot`
+ *   del contrato desde un reloj único (snapshot y SSE coherentes).
  */
 
 const PORT = Number(process.env['FAKE_BROKER_PORT'] ?? '4319');
 const GOOD_TOKEN = process.env['FAKE_BROKER_TOKEN'] ?? 'good-operator-token';
 const TICK_MS = 500;
 
-/** @type {{ name: string; partitionCount: number; replicationFactor: number; createdAtMs: number }[]} */
-const TOPICS = [
-  {
-    name: 'orders.events',
-    partitionCount: 6,
-    replicationFactor: 3,
-    createdAtMs: 1_720_000_000_000,
-  },
-  {
-    name: 'payments.settled',
-    partitionCount: 3,
-    replicationFactor: 3,
-    createdAtMs: 1_721_000_000_000,
-  },
-  { name: 'audit.log', partitionCount: 1, replicationFactor: 1, createdAtMs: 1_722_000_000_000 },
-  {
-    name: 'telemetry.raw',
-    partitionCount: 12,
-    replicationFactor: 2,
-    createdAtMs: 1_723_000_000_000,
-  },
-];
+// --- Topics: estado real en memoria -----------------------------------------
+
+const GiB = 1024 ** 3;
+
+/** @type {Map<string, { partitionCount: number; replicationFactor: number; segmentBytes: number; retentionMs: number; retentionBytes: number; createdAtMs: number }>} */
+const topics = new Map([
+  [
+    'orders.events',
+    {
+      partitionCount: 6,
+      replicationFactor: 3,
+      segmentBytes: GiB,
+      retentionMs: 604_800_000,
+      retentionBytes: -1,
+      createdAtMs: 1_720_000_000_000,
+    },
+  ],
+  [
+    'payments.settled',
+    {
+      partitionCount: 3,
+      replicationFactor: 3,
+      segmentBytes: GiB,
+      retentionMs: -1,
+      retentionBytes: -1,
+      createdAtMs: 1_721_000_000_000,
+    },
+  ],
+  [
+    'audit.log',
+    {
+      partitionCount: 1,
+      replicationFactor: 1,
+      segmentBytes: 512 * 1024 * 1024,
+      retentionMs: -1,
+      retentionBytes: -1,
+      createdAtMs: 1_722_000_000_000,
+    },
+  ],
+  [
+    'telemetry.raw',
+    {
+      partitionCount: 12,
+      replicationFactor: 2,
+      segmentBytes: GiB,
+      retentionMs: 86_400_000,
+      retentionBytes: 10 * GiB,
+      createdAtMs: 1_723_000_000_000,
+    },
+  ],
+]);
+
+function toSummary(name, t) {
+  return {
+    name,
+    partitionCount: t.partitionCount,
+    replicationFactor: t.replicationFactor,
+    createdAtMs: t.createdAtMs,
+  };
+}
+
+function toDescription(name, t) {
+  const partitions = Array.from({ length: t.partitionCount }, (_, id) => ({
+    id,
+    leader: (id % t.replicationFactor) + 1,
+    highWatermark: 1000 + id * 137,
+    leaderEpoch: 4,
+  }));
+  return {
+    ...toSummary(name, t),
+    config: {
+      retentionMs: t.retentionMs,
+      retentionBytes: t.retentionBytes,
+      segmentBytes: t.segmentBytes,
+    },
+    partitions,
+  };
+}
 
 // --- Métricas: estado que evoluciona en un único reloj -----------------------
 
-/** Cubos del histograma de latencia (le en segundos) y su distribución por intervalo. */
 const LATENCY_LES = [0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1];
 const PER_INTERVAL_CUM = [80, 380, 640, 850, 950, 990, 997, 999, 1000, 1000];
 const PER_INTERVAL_TOTAL = 1000;
@@ -58,13 +113,12 @@ const metricsState = {
   connections: 120,
 };
 
-/** Avanza el estado un intervalo: throughput ondulado + otra tanda de latencias. */
 function advance() {
   const t = metricsState.tick;
   metricsState.messagesIn += Math.round(4000 + 1500 * Math.sin(t / 4));
   metricsState.messagesOut += Math.round(3200 + 1200 * Math.sin(t / 4 + 0.8));
   metricsState.latencyCount += PER_INTERVAL_TOTAL;
-  metricsState.latencySum += 6; // ≈ 1000 obs × media 6 ms
+  metricsState.latencySum += 6;
   for (let i = 0; i < metricsState.latencyBuckets.length; i += 1) {
     metricsState.latencyBuckets[i] += PER_INTERVAL_CUM[i];
   }
@@ -72,7 +126,6 @@ function advance() {
   metricsState.tick = t + 1;
 }
 
-/** Construye el `MetricsSnapshot` (forma del contrato) desde el estado actual. */
 function metricsSnapshot() {
   return {
     metrics: [
@@ -109,10 +162,8 @@ function metricsSnapshot() {
   };
 }
 
-/** Suscriptores SSE activos (respuestas HTTP abiertas). */
 const streamSubscribers = new Set();
 
-/** Escritura tolerante: un socket ya cerrado no debe tumbar el reloj (ni el proceso). */
 function safeWrite(res, frame) {
   if (res.writableEnded || res.destroyed) {
     streamSubscribers.delete(res);
@@ -125,7 +176,6 @@ function safeWrite(res, frame) {
   }
 }
 
-/** Reloj único: avanza el estado y difunde un frame `metrics` a los suscriptores. */
 const ticker = setInterval(() => {
   advance();
   const frame = `event: metrics\ndata: ${JSON.stringify(metricsSnapshot())}\n\n`;
@@ -137,17 +187,10 @@ ticker.unref();
 
 // --- Cluster / Raft ----------------------------------------------------------
 
-/** `ClusterInfo` (forma del contrato) que evoluciona con el tick (commit/lag vivos). */
 function clusterInfo() {
   const t = metricsState.tick;
   const base = 10_000 + t * 8;
-  /** @param {number} node @param {number} lag */
-  const follower = (node, lastLogIndex, lag) => ({
-    node,
-    matchIndex: lastLogIndex - lag,
-    lag,
-  });
-  /** @param {string} topic @param {number} partition @param {number} leader @param {string} role @param {number} term @param {number} commit @param {number} logAhead */
+  const follower = (node, lastLogIndex, lag) => ({ node, matchIndex: lastLogIndex - lag, lag });
   const part = (topic, partition, leader, role, term, commit, logAhead) => {
     const lastLogIndex = commit + logAhead;
     const isLeader = role === 'leader';
@@ -168,7 +211,6 @@ function clusterInfo() {
         : [],
     };
   };
-
   return {
     nodeId: 1,
     nodes: [
@@ -187,8 +229,8 @@ function clusterInfo() {
 
 // --- HTTP --------------------------------------------------------------------
 
-function sendJson(res, status, body) {
-  res.writeHead(status, { 'content-type': 'application/json' });
+function sendJson(res, status, body, headers = {}) {
+  res.writeHead(status, { 'content-type': 'application/json', ...headers });
   res.end(JSON.stringify(body));
 }
 
@@ -204,6 +246,22 @@ function bearer(req) {
     : undefined;
 }
 
+function readJson(req) {
+  return new Promise((resolve) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+    });
+    req.on('end', () => {
+      try {
+        resolve(raw === '' ? {} : JSON.parse(raw));
+      } catch {
+        resolve(null);
+      }
+    });
+  });
+}
+
 function serveStream(req, res) {
   res.writeHead(200, {
     'content-type': 'text/event-stream',
@@ -216,6 +274,97 @@ function serveStream(req, res) {
   req.on('close', drop);
   res.on('close', drop);
   res.on('error', drop);
+}
+
+/** Enruta la superficie protegida de `topics` (exige Bearer válido). */
+async function handleTopics(req, res, url) {
+  if (bearer(req) !== GOOD_TOKEN) {
+    sendProblem(res, 401, 'No autorizado', 'Falta un token válido (Bearer).');
+    return;
+  }
+  const method = req.method ?? 'GET';
+  const path = url.pathname;
+  const isCollection = path === '/api/v1/topics';
+  const name = isCollection ? null : decodeURIComponent(path.slice('/api/v1/topics/'.length));
+
+  if (isCollection && method === 'GET') {
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? '1'));
+    const size = Math.max(1, Number(url.searchParams.get('size') ?? '20'));
+    const all = [...topics.entries()].map(([n, t]) => toSummary(n, t));
+    const items = all.slice((page - 1) * size, page * size);
+    sendJson(res, 200, { page, size, items });
+    return;
+  }
+
+  if (isCollection && method === 'POST') {
+    const body = await readJson(req);
+    if (body === null || typeof body.name !== 'string' || body.name.trim() === '') {
+      sendProblem(res, 400, 'Petición inválida', 'El nombre del topic es obligatorio.');
+      return;
+    }
+    const topicName = body.name.trim();
+    if (topics.has(topicName)) {
+      sendProblem(res, 409, 'Topic ya existe', `El topic «${topicName}» ya está declarado.`);
+      return;
+    }
+    const created = {
+      partitionCount: Number(body.partitionCount ?? 1) || 1,
+      replicationFactor: Number(body.replicationFactor ?? 1) || 1,
+      segmentBytes: Number(body.segmentBytes ?? 0) || 0,
+      retentionMs: body.retentionMs === undefined ? -1 : Number(body.retentionMs),
+      retentionBytes: body.retentionBytes === undefined ? -1 : Number(body.retentionBytes),
+      createdAtMs: Date.now(),
+    };
+    topics.set(topicName, created);
+    sendJson(res, 201, toSummary(topicName, created), {
+      location: `/api/v1/topics/${encodeURIComponent(topicName)}`,
+    });
+    return;
+  }
+
+  if (name !== null && method === 'GET') {
+    const t = topics.get(name);
+    if (t === undefined) {
+      sendProblem(res, 404, 'Topic no encontrado', `No existe el topic «${name}».`);
+      return;
+    }
+    sendJson(res, 200, toDescription(name, t));
+    return;
+  }
+
+  if (name !== null && method === 'PATCH') {
+    const t = topics.get(name);
+    if (t === undefined) {
+      sendProblem(res, 404, 'Topic no encontrado', `No existe el topic «${name}».`);
+      return;
+    }
+    const body = await readJson(req);
+    if (body === null) {
+      sendProblem(res, 400, 'Petición inválida', 'Cuerpo JSON inválido.');
+      return;
+    }
+    if (body.retentionMs !== undefined) {
+      t.retentionMs = Number(body.retentionMs);
+    }
+    if (body.retentionBytes !== undefined) {
+      t.retentionBytes = Number(body.retentionBytes);
+    }
+    sendJson(res, 200, toSummary(name, t));
+    return;
+  }
+
+  if (name !== null && method === 'DELETE') {
+    if (!topics.has(name)) {
+      sendProblem(res, 404, 'Topic no encontrado', `No existe el topic «${name}».`);
+      return;
+    }
+    topics.delete(name);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
+  sendProblem(res, 404, 'Ruta no encontrada', `El doble no enruta ${method} ${path}.`);
 }
 
 const server = createServer((req, res) => {
@@ -238,14 +387,13 @@ const server = createServer((req, res) => {
     return;
   }
 
-  // Superficie protegida (broker en «modo secreto»): exige Bearer válido.
-  if (method === 'GET' && path === '/api/v1/topics') {
-    if (bearer(req) !== GOOD_TOKEN) {
-      sendProblem(res, 401, 'No autorizado', 'Falta un token válido (Bearer).');
-      return;
-    }
-    const size = Number(url.searchParams.get('size') ?? '20');
-    sendJson(res, 200, { page: 1, size, items: TOPICS.slice(0, Math.max(0, size)) });
+  // Superficie protegida (broker en «modo secreto»).
+  if (path === '/api/v1/topics' || path.startsWith('/api/v1/topics/')) {
+    void handleTopics(req, res, url).catch(() => {
+      if (!res.headersSent) {
+        sendProblem(res, 500, 'Error del doble', 'Fallo inesperado en el doble del broker.');
+      }
+    });
     return;
   }
   if (method === 'GET' && path === '/api/v1/cluster') {

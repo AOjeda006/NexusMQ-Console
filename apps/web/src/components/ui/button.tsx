@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { cn } from '@/lib/cn';
 
-type Variant = 'primary' | 'ghost';
+type Variant = 'primary' | 'ghost' | 'danger';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variant?: Variant;
@@ -11,6 +11,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const VARIANTS: Record<Variant, string> = {
   primary: 'bg-primary text-primary-foreground hover:bg-primary-hover',
   ghost: 'border border-border text-foreground hover:bg-muted',
+  danger: 'bg-critical text-white hover:brightness-110',
 };
 
 /**

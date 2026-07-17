@@ -10,8 +10,12 @@ export type TopicSummary = components['schemas']['TopicSummary'];
 /** Página de topics devuelta por `GET /api/v1/topics`. */
 export type TopicPage = components['schemas']['TopicPage'];
 
+/** Raíz de las claves de caché de topics (para invalidar todas de golpe). */
+export const topicsRootKey = ['topics'] as const;
+
 /** Clave de caché de una página de topics. */
-export const topicsQueryKey = (page: number, size: number) => ['topics', page, size] as const;
+export const topicsQueryKey = (page: number, size: number) =>
+  [...topicsRootKey, 'page', page, size] as const;
 
 /**
  * Lista los topics (paginado) del broker vía BFF, con el cliente tipado del

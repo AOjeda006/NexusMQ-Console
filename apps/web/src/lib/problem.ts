@@ -85,3 +85,14 @@ export function unwrap<T>(result: FetchResult<T>): T {
   }
   throw new ProblemError(toProblem(result.error, result.response.status));
 }
+
+/**
+ * Variante para respuestas **sin cuerpo** (p. ej. `204 No Content` de un
+ * `DELETE`): no hay `data` que devolver, así que solo se comprueba el estado y se
+ * lanza un {@link ProblemError} si el broker/BFF respondió con error.
+ */
+export function unwrapVoid(result: Pick<FetchResult<unknown>, 'error' | 'response'>): void {
+  if (!result.response.ok) {
+    throw new ProblemError(toProblem(result.error, result.response.status));
+  }
+}

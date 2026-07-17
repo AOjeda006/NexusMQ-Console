@@ -190,7 +190,15 @@ en navegador full-stack**: en vivo (SSE), muestras que avanzan en < 2 s (AC), p9
 saludable y estado Raft real; captura revisada. El doble del broker emite ahora el `MetricsSnapshot`
 del contrato (counters + histograma + gauge) y un `ClusterInfo` con Raft vivo. Repo verde:
 typecheck/lint/build/test (51 BFF + **10 web**) + e2e shell/viz (7) + e2e full-stack (**7**).
-**Siguiente: F3.2 — Topics (CRUD completo + PATCH de retención).**
+
+**F3.2 COMPLETA**: gestión de **Topics** (CRUD + `PATCH` de retención). Lista paginada, crear
+(diálogo Radix), describir (config + particiones), **editar retención con efecto real** y borrar
+(confirmación); mutaciones tipadas del contrato que invalidan la caché para releer del broker.
+Nuevas primitivas: `Dialog`, `Field`/`Input`, variante `danger`, helper `unwrapVoid`. **Verificado en
+navegador full-stack**: crear → describir → **PATCH retentionMs ⇒ vigente «1 h» que persiste tras
+recargar** → borrar. El doble del broker pasó a **stateful**. Repo verde: typecheck/lint/build/test
+(contract 1 + BFF 51 + web 10) + e2e shell/viz (7) + e2e full-stack (**8**).
+**Siguiente: F3.3 — Grupos (listar + describir: miembros, offsets, lag).**
 
 ---
 
@@ -402,9 +410,23 @@ typecheck/lint/build/test (51 BFF + **10 web**) + e2e shell/viz (7) + e2e full-s
   El doble del broker se amplió para emitir el **`MetricsSnapshot` del contrato** (counters +
   histograma + gauge) desde un reloj único (SSE y snapshot coherentes) y un `ClusterInfo` con
   consenso Raft vivo. Repo verde (typecheck/lint/build/test + e2e shell/viz **7** y full-stack **7**).
-- [ ] **F3.2 Topics** — listar (paginado), crear, describir (particiones), borrar, **editar
+- [x] **F3.2 Topics** — listar (paginado), crear, describir (particiones), borrar, **editar
   retención (`PATCH`)**. *AC:* CRUD completo contra el broker real; el `PATCH` de retención se aplica
   y se ve el efecto.
+  ✔ Vista de gestión completa: **lista paginada** (controles anterior/siguiente), **crear** (diálogo
+  Radix con nombre/particiones/factor), **describir** (panel con config de retención + tabla de
+  particiones: líder, high-watermark, época), **editar retención** (`PATCH`) y **borrar** (diálogo de
+  confirmación, acción `danger`). Datos tipados del contrato + TanStack Query; cada mutación
+  **invalida la caché** para releer del broker (nunca caché optimista). Nuevas primitivas de diseño:
+  `Dialog` (Radix, foco atrapado + `Escape` + scroll lock), `Field`/`Input` y variante `danger` de
+  `Button`; helper `unwrapVoid` para el `204` del `DELETE`. **PATCH con efecto real**: al aplicar, la
+  descripción se vuelve a pedir al broker y el «vigente» cambia. **Verificado en navegador
+  full-stack** (`e2e-fullstack/topics.spec.ts`): crear → el topic aparece en la lista real y se abre
+  su detalle (4 particiones, retención «Sin límite») → **PATCH retentionMs=3600000 ⇒ el vigente pasa
+  a «1 h» y persiste tras recargar** (nueva descripción del broker) → borrar ⇒ desaparece de la lista.
+  El doble del broker es ahora **stateful** (POST/GET `{name}`/PATCH/DELETE con persistencia en
+  memoria). Capturas revisadas. Repo verde: typecheck/lint/build/test (contract 1 + BFF 51 + web 10)
+  + e2e shell/viz (7) y full-stack (**8**).
 - [ ] **F3.3 Grupos** — listar y **describir** (miembros, offsets, lag). *AC:* describe muestra lag
   real por partición.
 - [ ] **F3.4 Particiones** — detalle por topic (líder, high-watermark, leaderEpoch, lag).

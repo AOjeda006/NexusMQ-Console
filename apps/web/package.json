@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@nexusmq/contract": "workspace:*",
+    "@radix-ui/react-dialog": "^1.1.19",
     "@radix-ui/react-toggle-group": "^1.1.15",
     "@radix-ui/react-tooltip": "^1.2.12",
     "@react-three/fiber": "^9.6.1",
