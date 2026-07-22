@@ -133,6 +133,24 @@ Defensa en profundidad, con el BFF como único punto que habla con el broker:
   el navegador **no** puede redirigir el BFF a hosts arbitrarios.
 - **Imagen no-root**, secretos por entorno (nunca horneados), TLS en tránsito (proxy inverso).
 
+## Proyecto complementario — el ecosistema NexusMQ
+
+Esta consola es la mitad cliente de un ecosistema de dos repositorios:
+
+| Proyecto | Qué es | Repositorio |
+|---|---|---|
+| **NexusMQ** | El **broker** de mensajería distribuido en C++23 que esta consola administra: *shared-nothing thread-per-core*, **Raft por partición**, protocolo binario nativo y subconjunto Kafka. Publica el plano de operación REST y el catálogo de métricas que la consola consume. | <https://github.com/AOjeda006/NexusMQ> |
+| **NexusMQ Console** | Este repositorio: la **consola web** de administración y monitorización (SPA React + BFF NestJS). | <https://github.com/AOjeda006/NexusMQ-Console> |
+
+El broker es la **fuente de verdad del contrato**: su `docs/openapi.yaml` genera los tipos de
+[`packages/contract`](./packages/contract/) y su `docs/metrics.md` fija los nombres de las
+métricas que muestra el Dashboard. Su **[documentación
+técnica](https://github.com/AOjeda006/NexusMQ/tree/main/docs/tecnica)** (con su propio PDF)
+explica el sistema que hay al otro lado de esta interfaz: almacenamiento, replicación y
+consenso, protocolo y modelo de errores.
+
+Ambos proyectos se publican bajo la **misma licencia** (PolyForm Noncommercial 1.0.0).
+
 ## Licencia
 
 **PolyForm Noncommercial License 1.0.0** — la misma que el broker NexusMQ. Uso libre para
