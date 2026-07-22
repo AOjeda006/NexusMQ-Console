@@ -127,4 +127,9 @@ Defensa en profundidad, con el BFF como único punto que habla con el broker:
 
 ## Licencia
 
-<<Definir — p. ej. PolyForm Noncommercial 1.0.0, igual que NexusMQ, o la que elijas.>>
+**PolyForm Noncommercial License 1.0.0** — la misma que el broker NexusMQ. Uso libre para
+cualquier **propósito no comercial** (estudio, investigación, proyectos personales,
+organizaciones sin ánimo de lucro y educativas). Texto completo en [`LICENSE.md`](./LICENSE.md).
+
+> Required Notice: Copyright 2026 Andrés Ojeda Rodríguez — NexusMQ Console
+> (<https://github.com/AOjeda006/NexusMQ-Console>)
