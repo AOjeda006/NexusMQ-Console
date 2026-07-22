@@ -8,7 +8,7 @@ packages/contract/src/generated
 packages/contract/openapi.yaml
 *.tsbuildinfo
 
-# Documentación de gobernanza/spec redactada a mano (CLAUDE.md, AGENTS.md,
-# docs/PLAN.md, README.md, ADRs...): saltos de línea y tablas intencionados.
-# Prettier formatea código/config, no la prosa.
+# Documentación redactada a mano (README.md, docs/tecnica/, LICENSE.md...):
+# saltos de línea, tablas y diagramas Mermaid intencionados. Prettier formatea
+# código y configuración, no la prosa.
 *.md

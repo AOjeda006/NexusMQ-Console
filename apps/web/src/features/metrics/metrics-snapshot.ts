@@ -160,7 +160,10 @@ export function findHistogram(
       count += sample.count ?? 0;
       sum += sample.sum ?? 0;
       for (const bucket of sample.buckets) {
-        cumulativeByLe.set(bucket.le, (cumulativeByLe.get(bucket.le) ?? 0) + bucket.cumulativeCount);
+        cumulativeByLe.set(
+          bucket.le,
+          (cumulativeByLe.get(bucket.le) ?? 0) + bucket.cumulativeCount,
+        );
       }
     }
   }

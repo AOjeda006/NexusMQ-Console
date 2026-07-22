@@ -60,7 +60,12 @@ export function DashboardPage(): ReactNode {
           value={compact(current?.produceReqPerSec ?? null, 1)}
           unit="req/s"
           mark={<SeriesDot className="bg-series-1" />}
-          sub={<RateSub msgPerSec={current?.produceMsgPerSec} bytesPerSec={current?.produceBytesPerSec} />}
+          sub={
+            <RateSub
+              msgPerSec={current?.produceMsgPerSec}
+              bytesPerSec={current?.produceBytesPerSec}
+            />
+          }
           testId="kpi-produce"
         />
         <StatTile
@@ -68,7 +73,9 @@ export function DashboardPage(): ReactNode {
           value={compact(current?.fetchReqPerSec ?? null, 1)}
           unit="req/s"
           mark={<SeriesDot className="bg-series-2" />}
-          sub={<RateSub msgPerSec={current?.fetchMsgPerSec} bytesPerSec={current?.fetchBytesPerSec} />}
+          sub={
+            <RateSub msgPerSec={current?.fetchMsgPerSec} bytesPerSec={current?.fetchBytesPerSec} />
+          }
           testId="kpi-fetch"
         />
         <StatTile
@@ -92,7 +99,11 @@ export function DashboardPage(): ReactNode {
               <CheckCircle2 aria-hidden className="size-3.5 text-success" />
             )
           }
-          sub={<span>{errorRatio === null ? '— de peticiones' : `${percent(errorRatio)} de peticiones`}</span>}
+          sub={
+            <span>
+              {errorRatio === null ? '— de peticiones' : `${percent(errorRatio)} de peticiones`}
+            </span>
+          }
           testId="kpi-errors"
         />
         <StatTile
@@ -132,14 +143,16 @@ export function DashboardPage(): ReactNode {
 }
 
 /** Desglose de conexiones por `plane` («native 128 · kafka 41 · admin 7»), o «—». */
-function PlanesSub({ byPlane }: { readonly byPlane: ReadonlyMap<string, number> | null }): ReactNode {
+function PlanesSub({
+  byPlane,
+}: {
+  readonly byPlane: ReadonlyMap<string, number> | null;
+}): ReactNode {
   if (byPlane === null || byPlane.size === 0) {
     return <span>por plano: —</span>;
   }
   return (
-    <span>
-      {[...byPlane.entries()].map(([plane, n]) => `${plane} ${integer(n)}`).join(' · ')}
-    </span>
+    <span>{[...byPlane.entries()].map(([plane, n]) => `${plane} ${integer(n)}`).join(' · ')}</span>
   );
 }
 

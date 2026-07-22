@@ -76,7 +76,10 @@ export class PrometheusService {
     const payload = (await response.json().catch(() => undefined)) as PromPayload | undefined;
 
     if (response.status >= 500) {
-      throw new BadGatewayException({ title: 'Prometheus falló', detail: promErrorDetail(payload) });
+      throw new BadGatewayException({
+        title: 'Prometheus falló',
+        detail: promErrorDetail(payload),
+      });
     }
     if (!response.ok || payload?.status !== 'success') {
       throw new BadRequestException({

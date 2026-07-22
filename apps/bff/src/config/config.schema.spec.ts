@@ -33,7 +33,9 @@ describe('validateEnv (config fail-fast)', () => {
 
   it('el gate de login (CONSOLE_REQUIRE_LOGIN) es true por defecto y desactivable con "false"', () => {
     expect(validateEnv({ ...base }).consoleRequireLogin).toBe(true);
-    expect(validateEnv({ ...base, CONSOLE_REQUIRE_LOGIN: 'false' }).consoleRequireLogin).toBe(false);
+    expect(validateEnv({ ...base, CONSOLE_REQUIRE_LOGIN: 'false' }).consoleRequireLogin).toBe(
+      false,
+    );
   });
 
   it('el TTL de sesión por defecto es 8 h y es configurable (SESSION_TTL_HOURS)', () => {

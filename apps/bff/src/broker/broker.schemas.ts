@@ -37,7 +37,10 @@ export const alterTopicSchema = z
   .strict('Solo se admiten `retentionMs` y `retentionBytes`; `segmentBytes` es create-only.');
 
 /** Nombre de topic en la ruta: no vacío. */
-export const topicNameSchema = z.string().trim().min(1, 'El nombre del topic no puede estar vacío.');
+export const topicNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'El nombre del topic no puede estar vacío.');
 
 /** Identificador de grupo en la ruta: no vacío. */
 export const groupIdSchema = z.string().trim().min(1, 'El id del grupo no puede estar vacío.');

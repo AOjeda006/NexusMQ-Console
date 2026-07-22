@@ -97,7 +97,10 @@ export class StreamService {
           }`,
         );
       }
-      if (clientSignal.aborted || !(await sleep(backoffDelayMs(attempt++, BACKOFF), clientSignal))) {
+      if (
+        clientSignal.aborted ||
+        !(await sleep(backoffDelayMs(attempt++, BACKOFF), clientSignal))
+      ) {
         break;
       }
     }

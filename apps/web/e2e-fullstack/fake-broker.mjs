@@ -167,7 +167,10 @@ function metricsSnapshot() {
     labels: { api, protocol: 'native' },
     count: metricsState.latency[api].count,
     sum: metricsState.latency[api].sum,
-    buckets: LATENCY_LES.map((le, i) => ({ le, cumulativeCount: metricsState.latency[api].buckets[i] })),
+    buckets: LATENCY_LES.map((le, i) => ({
+      le,
+      cumulativeCount: metricsState.latency[api].buckets[i],
+    })),
   }));
   const connections = Object.entries(metricsState.connections).map(([plane, value]) => ({
     name: 'nexus_broker_connections_active',

@@ -193,7 +193,11 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     if (this.authRequired !== undefined && now - this.authRequiredCheckedAtMs < MODE_CACHE_TTL_MS) {
       return this.authRequired;
     }
-    const result = await this.broker.forward({ method: 'GET', path: PROBE_PATH, query: { size: 1 } });
+    const result = await this.broker.forward({
+      method: 'GET',
+      path: PROBE_PATH,
+      query: { size: 1 },
+    });
     this.authRequired = result.status === 401 || result.status === 403;
     this.authRequiredCheckedAtMs = now;
     return this.authRequired;

@@ -32,13 +32,43 @@ function snapshotWith(scale = 1): MetricsSnapshot {
   return {
     metrics: [
       // requests_total: produce (1000+200) y fetch (500+100) por protocolo.
-      { name: METRIC.requests, type: 'counter', labels: { api: 'produce', protocol: 'native' }, value: 1000 * scale },
-      { name: METRIC.requests, type: 'counter', labels: { api: 'produce', protocol: 'kafka' }, value: 200 * scale },
-      { name: METRIC.requests, type: 'counter', labels: { api: 'fetch', protocol: 'native' }, value: 500 * scale },
-      { name: METRIC.requests, type: 'counter', labels: { api: 'fetch', protocol: 'kafka' }, value: 100 * scale },
+      {
+        name: METRIC.requests,
+        type: 'counter',
+        labels: { api: 'produce', protocol: 'native' },
+        value: 1000 * scale,
+      },
+      {
+        name: METRIC.requests,
+        type: 'counter',
+        labels: { api: 'produce', protocol: 'kafka' },
+        value: 200 * scale,
+      },
+      {
+        name: METRIC.requests,
+        type: 'counter',
+        labels: { api: 'fetch', protocol: 'native' },
+        value: 500 * scale,
+      },
+      {
+        name: METRIC.requests,
+        type: 'counter',
+        labels: { api: 'fetch', protocol: 'kafka' },
+        value: 100 * scale,
+      },
       // errores: solo native, produce y fetch.
-      { name: METRIC.requestErrors, type: 'counter', labels: { api: 'produce', protocol: 'native' }, value: 3 * scale },
-      { name: METRIC.requestErrors, type: 'counter', labels: { api: 'fetch', protocol: 'native' }, value: 1 * scale },
+      {
+        name: METRIC.requestErrors,
+        type: 'counter',
+        labels: { api: 'produce', protocol: 'native' },
+        value: 3 * scale,
+      },
+      {
+        name: METRIC.requestErrors,
+        type: 'counter',
+        labels: { api: 'fetch', protocol: 'native' },
+        value: 1 * scale,
+      },
       // conexiones activas por plano.
       { name: METRIC.connections, type: 'gauge', labels: { plane: 'native' }, value: 80 },
       { name: METRIC.connections, type: 'gauge', labels: { plane: 'kafka' }, value: 30 },

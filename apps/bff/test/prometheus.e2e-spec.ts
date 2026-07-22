@@ -91,9 +91,13 @@ describe('Historia (Prometheus) — configurada, broker en modo secreto (F5.6)',
   });
 
   it('rechaza un step que no es una duración Prometheus (posible inyección)', async () => {
-    const res = await agent
-      .get('/api/history/query_range')
-      .query({ metric: 'errors', start: '1700000000', end: '1700000060', step: '1m]) or 1', window: '1m' });
+    const res = await agent.get('/api/history/query_range').query({
+      metric: 'errors',
+      start: '1700000000',
+      end: '1700000060',
+      step: '1m]) or 1',
+      window: '1m',
+    });
 
     expect(res.status).toBe(400);
     expect(res.body.issues[0]).toMatchObject({ path: 'step' });

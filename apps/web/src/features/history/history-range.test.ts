@@ -24,7 +24,13 @@ describe('resolveWindow', () => {
 describe('firstSeriesPoints', () => {
   it('normaliza la primera serie de la matriz (valor string → número)', () => {
     const result: readonly PromSeries[] = [
-      { metric: {}, values: [[100, '10.5'], [115, '25']] },
+      {
+        metric: {},
+        values: [
+          [100, '10.5'],
+          [115, '25'],
+        ],
+      },
       { metric: {}, values: [[100, '1']] },
     ];
     expect(firstSeriesPoints(result)).toEqual([
@@ -46,8 +52,20 @@ describe('firstSeriesPoints', () => {
 describe('alignSeries', () => {
   it('alinea series que comparten rejilla y aplica la escala', () => {
     const data = alignSeries([
-      { points: [{ ts: 10, v: 1 }, { ts: 20, v: 2 }], scale: 1 },
-      { points: [{ ts: 10, v: 0.05 }, { ts: 20, v: 0.06 }], scale: 1000 },
+      {
+        points: [
+          { ts: 10, v: 1 },
+          { ts: 20, v: 2 },
+        ],
+        scale: 1,
+      },
+      {
+        points: [
+          { ts: 10, v: 0.05 },
+          { ts: 20, v: 0.06 },
+        ],
+        scale: 1000,
+      },
     ]);
     expect(data).toEqual([
       [10, 20],
@@ -59,7 +77,13 @@ describe('alignSeries', () => {
 
   it('rellena con null los instantes que a una serie le faltan (unión del eje X)', () => {
     const data = alignSeries([
-      { points: [{ ts: 10, v: 1 }, { ts: 30, v: 3 }], scale: 1 },
+      {
+        points: [
+          { ts: 10, v: 1 },
+          { ts: 30, v: 3 },
+        ],
+        scale: 1,
+      },
       { points: [{ ts: 20, v: 9 }], scale: 1 },
     ]);
     expect(data).toEqual([

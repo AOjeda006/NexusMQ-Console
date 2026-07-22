@@ -24,12 +24,8 @@ test('dibuja series temporales de throughput y latencias desde Prometheus vía B
   const history = page.getByTestId('history');
 
   // Las dos gráficas históricas se dibujan (uPlot en <canvas>, con leyenda).
-  await expect(
-    history.getByRole('img', { name: /Throughput histórico/ }),
-  ).toBeVisible();
-  await expect(
-    history.getByRole('img', { name: /Latencias históricas/ }),
-  ).toBeVisible();
+  await expect(history.getByRole('img', { name: /Throughput histórico/ })).toBeVisible();
+  await expect(history.getByRole('img', { name: /Latencias históricas/ })).toBeVisible();
   expect(await history.locator('canvas').count()).toBeGreaterThanOrEqual(2);
 
   // La leyenda de uPlot nombra las series (identidad, no solo color).

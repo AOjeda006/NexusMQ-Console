@@ -68,7 +68,11 @@ export interface PromSeries {
 
 /** Respuesta de historia del BFF: datos, o degradación limpia sin Prometheus. */
 export type HistoryResponse =
-  | { readonly available: true; readonly resultType: string; readonly result: readonly PromSeries[] }
+  | {
+      readonly available: true;
+      readonly resultType: string;
+      readonly result: readonly PromSeries[];
+    }
   | { readonly available: false; readonly reason: string };
 
 /** Punto de una serie ya normalizado; `NaN` de Prometheus se vuelve `null` (hueco). */

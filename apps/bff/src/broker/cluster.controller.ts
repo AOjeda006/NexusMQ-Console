@@ -13,10 +13,7 @@ export class ClusterController {
   constructor(private readonly broker: BrokerService) {}
 
   @Get()
-  async describe(
-    @BrokerToken() token: string | undefined,
-    @Res() res: Response,
-  ): Promise<void> {
+  async describe(@BrokerToken() token: string | undefined, @Res() res: Response): Promise<void> {
     const result = await this.broker.forward({ method: 'GET', path: '/api/v1/cluster', token });
     sendProxyResult(res, result);
   }

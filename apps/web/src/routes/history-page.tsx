@@ -77,7 +77,11 @@ export function HistoryPage(): ReactNode {
           />
           {series.isError && <ProblemAlert problem={problemFrom(series.error)} />}
           <div className="grid gap-4 xl:grid-cols-2">
-            <ChartCard title="Throughput (peticiones/s)" data={throughput} loading={series.isLoading}>
+            <ChartCard
+              title="Throughput (peticiones/s)"
+              data={throughput}
+              loading={series.isLoading}
+            >
               <HistoryChart
                 data={throughput}
                 labels={THROUGHPUT_LABELS}
@@ -143,7 +147,10 @@ function ChartCard({
 /** Aviso honesto cuando el BFF no tiene Prometheus configurado (degradación limpia). */
 function DegradedNotice(): ReactNode {
   return (
-    <Card className="flex flex-col items-center gap-3 p-8 text-center" data-testid="history-degraded">
+    <Card
+      className="flex flex-col items-center gap-3 p-8 text-center"
+      data-testid="history-degraded"
+    >
       <div className="rounded-full border border-border bg-muted p-3">
         <ServerOff aria-hidden className="size-6 text-muted-foreground" />
       </div>

@@ -23,7 +23,11 @@ function route(req: IncomingMessage, res: ServerResponse): void {
   const url = new URL(req.url ?? '/', 'http://127.0.0.1');
   if (req.method === 'GET' && url.pathname === '/api/v1/query_range') {
     if (url.searchParams.get('query') === BAD_QUERY) {
-      sendJson(res, 400, { status: 'error', errorType: 'bad_data', error: 'parse error en la query' });
+      sendJson(res, 400, {
+        status: 'error',
+        errorType: 'bad_data',
+        error: 'parse error en la query',
+      });
       return;
     }
     sendJson(res, 200, {

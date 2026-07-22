@@ -50,7 +50,10 @@ describe('Proxy REST del broker (F1.3)', () => {
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body.metrics)).toBe(true);
-      expect(res.body.metrics[0]).toMatchObject({ name: 'nexus_broker_requests_total', type: 'counter' });
+      expect(res.body.metrics[0]).toMatchObject({
+        name: 'nexus_broker_requests_total',
+        type: 'counter',
+      });
     });
 
     it('GET /api/v1/topics propaga la paginación al broker', async () => {

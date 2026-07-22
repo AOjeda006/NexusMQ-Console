@@ -127,7 +127,9 @@ function deriveSample(
   const hist = findHistogram(snapshot, METRIC.requestDuration, { api: API.produce });
   if (hist !== null) {
     const prevHist =
-      prev === null ? null : findHistogram(prev.snapshot, METRIC.requestDuration, { api: API.produce });
+      prev === null
+        ? null
+        : findHistogram(prev.snapshot, METRIC.requestDuration, { api: API.produce });
     const window = prevHist === null ? null : deltaHistogram(prevHist, hist);
     const source = window ?? hist;
     p50Ms = toMillis(histogramQuantile(source.buckets, source.count, QUANTILES.p50));

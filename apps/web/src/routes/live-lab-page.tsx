@@ -7,7 +7,12 @@ import { ThemeToggle } from '@/app/theme/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { type LiveStatus, useLiveStream } from '@/features/live/use-live-stream';
-import { API, findCounter, METRIC, type MetricsSnapshot } from '@/features/metrics/metrics-snapshot';
+import {
+  API,
+  findCounter,
+  METRIC,
+  type MetricsSnapshot,
+} from '@/features/metrics/metrics-snapshot';
 
 const GOOD_STREAM = '/api/v1/stream';
 const BROKEN_STREAM = '/api/v1/stream-broken';
