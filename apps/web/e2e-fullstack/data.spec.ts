@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 const GOOD_TOKEN = 'good-operator-token';
 
 /** Inicia sesión pegando el token válido y espera a entrar al shell. */
@@ -32,7 +29,6 @@ test('un token inválido muestra el error RFC 7807 del BFF y no entra', async ({
 
   await expect(page.getByRole('alert')).toContainText('Token rechazado');
   await expect(page).toHaveURL(/\/login$/);
-  await page.screenshot({ path: `${SHOTS_DIR}/f22-login-error.png`, fullPage: true });
 });
 
 test('login válido entra y Topics lista los topics reales del broker vía BFF', async ({ page }) => {
@@ -47,7 +43,6 @@ test('login válido entra y Topics lista los topics reales del broker vía BFF',
   await expect(page.getByRole('cell', { name: 'orders.events', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'payments.settled', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'telemetry.raw', exact: true })).toBeVisible();
-  await page.screenshot({ path: `${SHOTS_DIR}/f22-topics.png`, fullPage: true });
 
   // La cookie de sesión httpOnly persiste la sesión al recargar.
   await page.reload();

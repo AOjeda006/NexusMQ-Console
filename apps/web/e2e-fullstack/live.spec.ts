@@ -1,8 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 const GOOD_TOKEN = 'good-operator-token';
 
 /** Inicia sesión (el fallback a polling del snapshot exige sesión desde F5.7). */
@@ -32,7 +29,6 @@ test('recibe push por SSE y cae a polling al fallar el SSE, sin romper la UI', a
   // Llega push en vivo: la marca de última actualización avanza sola.
   const firstUpdated = await panel.getAttribute('data-updated');
   await expect.poll(() => panel.getAttribute('data-updated')).not.toBe(firstUpdated);
-  await page.screenshot({ path: `${SHOTS_DIR}/f24-live.png`, fullPage: true });
 
   // 2) Forzar el fallo del SSE ⇒ cae a polling del snapshot.
   await page.getByRole('button', { name: 'Forzar fallo de SSE' }).click();
@@ -42,7 +38,6 @@ test('recibe push por SSE y cae a polling al fallar el SSE, sin romper la UI', a
   // El polling sigue actualizando (snapshot creciente): la UI no se rompe.
   const polledUpdated = await panel.getAttribute('data-updated');
   await expect.poll(() => panel.getAttribute('data-updated')).not.toBe(polledUpdated);
-  await page.screenshot({ path: `${SHOTS_DIR}/f24-polling.png`, fullPage: true });
 
   // 3) Restaurar el SSE ⇒ vuelve a estar en vivo.
   await page.getByRole('button', { name: 'Restaurar SSE' }).click();

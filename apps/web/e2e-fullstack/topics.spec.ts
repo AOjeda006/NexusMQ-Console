@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 const GOOD_TOKEN = 'good-operator-token';
 
 async function login(page: import('@playwright/test').Page): Promise<void> {
@@ -46,7 +43,6 @@ test('crea, describe, edita la retención (PATCH con efecto real) y borra un top
   await expect(detail.getByText('Particiones (4)')).toBeVisible();
   await expect(detail.getByText('p3', { exact: true })).toBeVisible();
   await expect(page.getByTestId('retention-ms')).toHaveText('Sin límite');
-  await page.screenshot({ path: `${SHOTS_DIR}/f32-describe.png`, fullPage: true });
 
   // 3) PATCH de retención con **efecto real**: al aplicar, la descripción se vuelve
   //    a pedir al broker y el valor vigente cambia (no es optimista).
@@ -54,7 +50,6 @@ test('crea, describe, edita la retención (PATCH con efecto real) y borra un top
   await page.getByRole('button', { name: 'Aplicar retención' }).click();
   await expect(page.getByTestId('retention-applied')).toBeVisible();
   await expect(page.getByTestId('retention-ms')).toHaveText('1 h');
-  await page.screenshot({ path: `${SHOTS_DIR}/f32-retention-applied.png`, fullPage: true });
 
   // La persistencia es real: al recargar (nueva descripción del broker) sigue en 1 h.
   await page.reload();

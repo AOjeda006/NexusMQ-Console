@@ -20,6 +20,9 @@ packages/contract/src/generated/
 coverage/
 playwright-report/
 test-results/
+# Red de seguridad: una ruta absoluta de Windows en un spec crearía este árbol
+# al correr en Linux/CI. No debe volver a ocurrir, pero que no se cuele si pasa.
+apps/web/C:/
 
 # Entorno y secretos (NUNCA se commitean)
 .env

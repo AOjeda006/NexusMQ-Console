@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 const GOOD_TOKEN = 'good-operator-token';
 
 /** Inicia sesión pegando el token válido; tras login se aterriza en el Dashboard (`/`). */
@@ -68,6 +65,4 @@ test('el Dashboard muestra métricas en vivo, gráficas y estado Raft del broker
   await expect(clusterPanel).toContainText('(local)');
   await expect(clusterPanel.getByText('orders.events-p0')).toBeVisible();
   await expect(clusterPanel.getByText('Líder').first()).toBeVisible();
-
-  await page.screenshot({ path: `${SHOTS_DIR}/f31-dashboard.png`, fullPage: true });
 });

@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 const GOOD_TOKEN = 'good-operator-token';
 
 async function login(page: import('@playwright/test').Page): Promise<void> {
@@ -32,11 +29,9 @@ test('muestra nodos, consenso Raft y la topología 3D que responde al líder', a
   const leader = page.getByTestId('topology-leader');
   await expect(leader).toContainText('orders.events-p0');
   await expect(leader).toContainText('Nodo 1');
-  await page.screenshot({ path: `${SHOTS_DIR}/f35-topology.png`, fullPage: true });
 
   // Seleccionar una partición con distinto líder ⇒ la topología responde.
   await page.getByRole('button', { name: 'orders.events-p2' }).click();
   await expect(leader).toContainText('orders.events-p2');
   await expect(leader).toContainText('Nodo 2');
-  await page.screenshot({ path: `${SHOTS_DIR}/f35-topology-p2.png`, fullPage: true });
 });

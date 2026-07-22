@@ -1,8 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 /**
  * Estos tests verifican solo el **shell** (F2.1) sobre el build estático servido
  * por `vite preview`, sin BFF. Como el shell va tras el guard de auth (F2.2),
@@ -68,8 +65,6 @@ test('renderiza el shell con marca, navegación y título de sección', async ({
     await expect(page.getByRole('link', { name: label })).toBeVisible();
   }
   await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
-
-  await page.screenshot({ path: `${SHOTS_DIR}/f21-dashboard-light.png`, fullPage: true });
 });
 
 test('navega entre secciones y marca la activa', async ({ page }) => {
@@ -95,7 +90,6 @@ test('conmuta a oscuro, persiste al recargar y vuelve a claro', async ({ page })
   // El script anti-FOUC de index.html debe reaplicar el tema antes del paint.
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.screenshot({ path: `${SHOTS_DIR}/f21-dashboard-dark.png`, fullPage: true });
 
   await page.getByLabel('Tema claro').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');

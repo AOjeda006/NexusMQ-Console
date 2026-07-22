@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 const GOOD_TOKEN = 'good-operator-token';
 
 async function login(page: import('@playwright/test').Page): Promise<void> {
@@ -34,7 +31,6 @@ test('permite cambiar de tema, ver el estado de conexión y cerrar sesión desde
   // Conexión/observabilidad: broker confinado y Prometheus configurada en el e2e (F4.1).
   await expect(page.getByText('Confinado en el servidor (BFF)')).toBeVisible();
   await expect(page.getByText('Disponible')).toBeVisible();
-  await page.screenshot({ path: `${SHOTS_DIR}/f36-settings.png`, fullPage: true });
 
   // Logout desde la UI ⇒ el guard vuelve al login.
   await page.getByTestId('settings-logout').click();

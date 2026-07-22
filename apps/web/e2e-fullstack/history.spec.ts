@@ -1,8 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 const GOOD_TOKEN = 'good-operator-token';
 
 async function login(page: Page): Promise<void> {
@@ -43,8 +40,6 @@ test('dibuja series temporales de throughput y latencias desde Prometheus vía B
   await page.getByRole('radio', { name: '6 h' }).click();
   await expect(page.getByRole('radio', { name: '6 h' })).toHaveAttribute('aria-checked', 'true');
   await expect(history.locator('canvas').first()).toBeVisible();
-
-  await page.screenshot({ path: `${SHOTS_DIR}/f41-history.png`, fullPage: true });
 });
 
 /**
@@ -72,6 +67,4 @@ test('degrada con un aviso honesto cuando Prometheus no está configurado', asyn
 
   // No se pintan gráficas ni selector de rango en modo degradado.
   await expect(page.getByTestId('history-range')).toHaveCount(0);
-
-  await page.screenshot({ path: `${SHOTS_DIR}/f41-history-degraded.png`, fullPage: true });
 });

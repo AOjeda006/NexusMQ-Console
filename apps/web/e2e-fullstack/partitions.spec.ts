@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-const SHOTS_DIR =
-  'C:/Users/Predator/AppData/Local/Temp/claude/c--Users-Predator-Desktop-PROGRAMACION-PROYECTOS-Y-REPOS-NexusMQ-Console/ee8c41d0-eca4-4744-8475-bd8f764e1a1f/scratchpad';
-
 const GOOD_TOKEN = 'good-operator-token';
 
 async function login(page: import('@playwright/test').Page): Promise<void> {
@@ -38,6 +35,4 @@ test('el detalle del topic muestra particiones con lag de réplica del consenso 
   await expect(detail.getByTestId('partition-lag').first()).not.toHaveText('—');
   // p3 no está en el consenso (no la lidera este nodo): lag «—», coherente con describe.
   await expect(detail.getByTestId('partition-lag').nth(3)).toHaveText('—');
-
-  await page.screenshot({ path: `${SHOTS_DIR}/f34-partitions.png`, fullPage: true });
 });
