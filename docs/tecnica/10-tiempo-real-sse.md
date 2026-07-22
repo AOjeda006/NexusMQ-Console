@@ -36,12 +36,12 @@ sequenceDiagram
     B-->>S: frame
     S-->>N: frame (con backpressure)
   end
-  Note over S,N: cada 15 s: ": keep-alive"
+  Note over S,N: latido cada 15 s
   B--xS: el broker cae
-  Note over S: backoff + jitter; el EventSource del cliente NO se cierra
+  Note over S: backoff + jitter, el EventSource del cliente NO se cierra
   S->>B: reconecta
-  N--xS: el cliente se va (req 'close')
-  Note over S: AbortController aborta el upstream; cierre limpio
+  N--xS: el cliente se va (req close)
+  Note over S: AbortController aborta el upstream y cierra limpio
 ```
 
 Esta indirección compra tres cosas que un `EventSource` directo al broker no da:
