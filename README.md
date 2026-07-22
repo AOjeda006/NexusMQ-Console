@@ -104,12 +104,6 @@ La consola habla **HTTP en claro** dentro de su red; **termina TLS en un proxy i
 HTTPS) y se emite **HSTS**, así que sírvela **siempre tras HTTPS** en producción. `GET /health`
 (liveness) y `GET /readyz` (readiness, vía el broker) sirven para las *probes* del orquestador.
 
-## Desarrollo asistido por agentes
-
-Este repo sigue el **sistema de agentes Claude Code** de la biblioteca de convenciones:
-`CLAUDE.md` (memoria + reglas), `AGENTS.md` (contrato de trabajo) y `docs/PLAN.md` (spec + checklist,
-fuente de verdad del estado). El estado vive en disco para sobrevivir a `/compact`.
-
 ## Seguridad
 
 Defensa en profundidad, con el BFF como único punto que habla con el broker:
@@ -130,8 +124,6 @@ Defensa en profundidad, con el BFF como único punto que habla con el broker:
 - **Anti-SSRF.** El destino del broker y de Prometheus se fija por entorno (confinado en el servidor):
   el navegador **no** puede redirigir el BFF a hosts arbitrarios.
 - **Imagen no-root**, secretos por entorno (nunca horneados), TLS en tránsito (proxy inverso).
-
-Detalle y decisiones en `docs/PLAN.md`.
 
 ## Licencia
 
