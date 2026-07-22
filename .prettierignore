@@ -8,6 +8,10 @@ packages/contract/src/generated
 packages/contract/openapi.yaml
 *.tsbuildinfo
 
+# Generador del PDF de la documentación: herramienta autónoma fuera del
+# workspace, copia adaptada de la del broker. Se mantiene alineada con ella.
+docs/pdf
+
 # Documentación redactada a mano (README.md, docs/tecnica/, LICENSE.md...):
 # saltos de línea, tablas y diagramas Mermaid intencionados. Prettier formatea
 # código y configuración, no la prosa.

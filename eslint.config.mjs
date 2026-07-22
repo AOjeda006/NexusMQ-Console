@@ -23,6 +23,11 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/.turbo/**',
       'packages/contract/src/generated/**',
+      // Generador del PDF de la documentación: herramienta autónoma, fuera del
+      // workspace pnpm y con su propio `package.json`/`node_modules`. Es
+      // CommonJS a propósito y ejecuta código en el contexto del navegador
+      // (Mermaid en Chromium), así que las reglas de este monorepo no aplican.
+      'docs/pdf/**',
     ],
   },
   js.configs.recommended,
