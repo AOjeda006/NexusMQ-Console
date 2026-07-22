@@ -4,8 +4,16 @@ Consola web de **administración y monitorización** de [NexusMQ](https://github
 un broker de mensajería distribuido en C++23. Cliente **externo y remoto**: no toca el core del
 broker — consume su **plano de operación REST** (contrato OpenAPI).
 
-> Estado: **en desarrollo** (v1). El backend de NexusMQ ya expone todo el contrato necesario
-> (topics CRUD + `PATCH`, groups describe, cluster, snapshot de métricas y SSE en vivo).
+> Estado: **v1 completa**. Dashboard vivo (SSE), Topics (CRUD + `PATCH` de retención), Grupos,
+> Particiones, Cluster/Raft con topología 3D e Historia sobre Prometheus, empaquetado en una
+> imagen Docker.
+
+## Documentación
+
+- **[Documentación técnica](./docs/tecnica/)** — 20 capítulos *as-built*: arquitectura, contrato,
+  autenticación confinada, SSE, observabilidad, visualización, seguridad, pruebas y operación.
+- **[PDF único](./docs/pdf/NexusMQ-Console-documentacion-tecnica.pdf)** — el mismo contenido con
+  los diagramas renderizados. Se regenera con [`docs/pdf/`](./docs/pdf/).
 
 ## Arquitectura
 
